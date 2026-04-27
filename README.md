@@ -1,39 +1,74 @@
-# EduProva Management System
+# EduProva: Enterprise Management Platform
 
-Task and Employee Management Platform with dynamic PDF generation and real-time attendance tracking.
+A robust, full-stack management system designed for tracking employee productivity, dynamic document generation, and real-time attendance with geolocation. Built for scalability and production performance on AWS.
 
-## 🚀 Quick Setup
+---
 
-### 1. Backend (FastAPI + SQL Server)
-1. Navigate to the backend folder: `cd backend`
-2. Create virtual environment: `python -m venv venv`
-3. Activate environment:
-   - Windows: `.\venv\Scripts\activate`
-   - Linux: `source venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
-5. Configure `.env` (refer to `.env.example`)
-6. Run server: `uvicorn app.main:app --host 0.0.0.0 --port 5000`
+## 🌟 Key Features
 
-### 2. Frontend (React + Vite)
-1. Navigate to the frontend folder: `cd work-updates`
-2. Install dependencies: `npm install`
-3. Configure `.env` (refer to `.env.example`)
-4. Run dev: `npm run dev`
-5. Build for prod: `npm run build`
+- **🚀 Advanced Task Tracking**: Granular 0-100% progress tracking with automatic daily/weekly work average calculations.
+- **🔐 Enterprise Security**: Dual-token JWT system (Access & Refresh tokens) with silent session renewal and database-backed revocation.
+- **📍 Smart Attendance**: Geolocation-tagged check-in/out with automated office distance verification and Excel report exports.
+- **📄 Dynamic Document Engine**: Automated PDF generation for **Pay Slips** (with salary breakdown) and **Offer Letters** using Jinja2 templates.
+- **☁️ Cloud-Native Profile storage**: Seamless integration with **Cloudinary** for employee avatars with automatic local fallbacks.
+- **📊 Admin Control Center**: Real-time project health metrics, team activity feeds, and employee performance analytics.
 
-## 🔑 Environment Variables
-The following variables are **strictly required** for the system to operate:
+---
 
-| Variable | Description |
-| :--- | :--- |
-| `DB_HOST` | RDS/Database endpoint |
-| `DB_PORT` | 1433 (default for SQL Server) |
-| `DB_NAME` | Database name |
-| `DB_USER` | SQL Username |
-| `DB_PASSWORD` | SQL Password |
-| `SECRET_KEY` | JWT signing key |
-| `ALGORITHM` | HS256 |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 30 |
+## 🛠️ Tech Stack
 
-## 🔗 Deployment
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for full AWS EC2/RDS deployment instructions including Nginx proxy setup.
+- **Backend**: FastAPI (Python 3.9+), MongoDB Atlas, motor (Async Driver).
+- **Frontend**: React.js, Vite, Tailwind CSS, Lucide Icons.
+- **Deployment**: AWS EC2, Nginx (Reverse Proxy), Gunicorn/Uvicorn, PM2/Systemd.
+- **Extras**: xhtml2pdf, Cloudinary SDK, JWT (jose).
+
+---
+
+## 🚀 Quick Start (Local Development)
+
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv venv
+# Activate: .\venv\Scripts\activate (Windows) or source venv/bin/activate (Linux)
+pip install -r requirements.txt
+cp .env.example .env  # Update with your MongoDB/Cloudinary keys
+uvicorn app.main:app --reload --port 8000
+```
+
+### 2. Frontend Setup
+```bash
+cd work-updates
+npm install
+npm run dev
+```
+
+---
+
+## ☁️ AWS Deployment (Production)
+
+This project is pre-configured for AWS EC2 using a single-command deployment script.
+
+1. **Clone to EC2**: `git clone https://github.com/Dilshaj/Task-Trail.git /var/www/work-updates`
+2. **Execute Deployment**:
+   ```bash
+   cd /var/www/work-updates
+   chmod +x deploy_aws.sh
+   ./deploy_aws.sh
+   ```
+3. **Nginx & Systemd**: The script automatically configures Nginx (`deployment/nginx.conf`) and sets up the backend as a background service (`deployment/backend.service`).
+
+---
+
+## 📁 Repository Structure
+- `/backend`: FastAPI application, models, and service layer.
+- `/work-updates`: React frontend application.
+- `/deployment`: Production configuration files (Nginx, Gunicorn, systemd).
+- `/static`: Static assets such as logos and company templates.
+
+---
+
+## 🔑 Security Note
+This repository includes a `.env.example` file. **Never push your actual `.env` file to GitHub.** The current `.gitignore` is configured to protect your secrets.
+
+Developed by **Dilshaj Infotech**.
