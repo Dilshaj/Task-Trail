@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 1.5cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            color: #333;
+            line-height: 1.4;
+        }
+        .header {
+            width: 100%;
+            border-bottom: 2pt solid #1e3a8a;
+            padding-bottom: 15pt;
+            margin-bottom: 25pt;
+        }
+        .logo {
+            height: 45pt;
+        }
+        .company-info {
+            text-align: right;
+            font-size: 9pt;
+            color: #666;
+        }
+        .title {
+            text-align: center;
+            font-size: 22pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin: 20pt 0 30pt 0;
+            text-transform: uppercase;
+        }
+        .section-title {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-top: 15pt;
+            margin-bottom: 5pt;
+            border-bottom: 0.5pt solid #eee;
+            padding-bottom: 2pt;
+        }
+        .content {
+            margin-bottom: 12pt;
+        }
+        .footer {
+            position: fixed;
+            bottom: -1cm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+            border-top: 0.5pt solid #eee;
+            padding-top: 5pt;
+        }
+        .signature-section {
+            margin-top: 40pt;
+            width: 100%;
+        }
+        .signature-box {
+            width: 45%;
+            border-top: 1pt solid #000;
+            padding-top: 5pt;
+            margin-top: 50pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <table style="width: 100%;">
+            <tr>
+                <td style="width: 50%;">
+                    <img src="{{logo_path}}" class="logo">
+                </td>
+                <td class="company-info" style="width: 50%;">
+                    <div style="font-weight: bold; color: #1e3a8a; font-size: 11pt;">DILSHAJ INFOTECH PVT LTD</div>
+                    <div>Tech Park, Floor 4, Sector 12</div>
+                    <div>Bangalore, Karnataka - 560001</div>
+                    <div>hr@dilshajinfotech.com</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 20pt;">
+        <strong>Date:</strong> {{date}}
+    </div>
+
+    <div style="margin-bottom: 25pt;">
+        <strong>To,</strong><br>
+        <span style="font-size: 12pt; font-weight: bold;">{{employee_name}}</span><br>
+        {{location}}
+    </div>
+
+    <div class="title">OFFER LETTER</div>
+
+    <div class="content">
+        Dear <strong>{{employee_name}}</strong>,
+    </div>
+
+    <div class="content">
+        Following your recent interview and discussions for the position of <strong>{{role}}</strong>, we are pleased to
+        offer you an appointment at <strong>Dilshaj Infotech</strong>. We believe your skills and enthusiasm will be a
+        great asset to our team and contributing to our mutual success.
+    </div>
+
+    <div class="section-title">1. POSITION & JOINING</div>
+    <div class="content">
+        You will be appointed as <strong>{{role}}</strong>. Your expected date of joining will be
+        <strong>{{joining_date}}</strong>. Your primary workplace will be at <strong>{{location}}</strong>, although you
+        may be required to travel or work from other locations as per business needs.
+    </div>
+
+    <div class="section-title">2. COMPENSATION & BENEFITS</div>
+    <div class="content">
+        Your Annual Total Cost to Company (CTC) will be <strong>{{package}}</strong>. This includes basic pay, statutory
+        components, and other allowances as per company policy. A detailed breakdown will be provided in your
+        appointment letter upon joining.
+    </div>
+
+    <div class="section-title">3. WORKING HOURS</div>
+    <div class="content">
+        The standard working hours are 9:30 AM to 6:30 PM (Monday to Friday). You are expected to maintain high
+        standards of performance and professional ethics at all times during your tenure with the company.
+    </div>
+
+    <div class="section-title">4. CONFIDENTIALITY</div>
+    <div class="content">
+        You shall not disclose any confidential information, trade secrets, or client data to any third party during or
+        after your employment.
+    </div>
+
+    <div class="section-title">5. ACCEPTANCE</div>
+    <div class="content">
+        Please signify your acceptance of this offer by signing and returning a copy of this letter by
+        <strong>{{expiry_date}}</strong>.
+    </div>
+
+    <table class="signature-section">
+        <tr>
+            <td style="width: 50%; padding-right: 20pt;">
+                <div class="signature-box">
+                    <strong>Authorized Signatory</strong><br>
+                    Dilshaj Infotech
+                </div>
+            </td>
+            <td style="width: 50%; text-align: right; padding-left: 20pt;">
+                <div class="signature-box" style="margin-left: auto;">
+                    <strong>Candidate Signature</strong><br>
+                    Name: {{employee_name}}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        © 2026 Dilshaj Infotech | Confidential Document | Registered in India
+    </div>
+</body>
+</html>

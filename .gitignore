@@ -1,0 +1,52 @@
+# --- Python ---
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*$py.class
+.db
+.sqlite3
+
+# --- Node / React ---
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+build/
+**/build/
+.pnp
+.pnp.js
+.vercel
+
+# --- Environment ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env*
+!.env.example
+
+# --- OS / Editors ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Project Specific ---
+static/avatars/*
+!static/avatars/.gitkeep
+static/logos/*
+!static/logos/company_logo.jpg
+backend/uploads/*
+uploads/*
+*.pdf
+pdf_dump.txt
+pdf_dump_utf8.txt

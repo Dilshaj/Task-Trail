@@ -1,0 +1,51 @@
+name: Fullstack Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key.pem
+          chmod 600 ~/.ssh/key.pem
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          
+          cd ~/Work-Sheet
+
+          echo "🔄 Pulling latest code"
+          git fetch origin
+          git reset --hard origin/main
+
+          echo "🐍 Backend setup"
+          cd backend
+          source venv/bin/activate
+          
+          # Load env variables
+          export $(cat .env | xargs)
+          
+          pip install -r requirements.txt
+
+          # Restart backend safely
+          pm2 restart backend || pm2 start "venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 5000" --name backend
+
+          echo "⚛️ Frontend build"
+          cd ../work-updates
+          npm install
+          npm run build
+
+          echo "🌐 Restart nginx"
+          sudo systemctl restart nginx
+
+          echo "✅ Deployment done"
+
+          EOF

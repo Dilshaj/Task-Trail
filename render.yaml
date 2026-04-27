@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fullstack-work-sheet
+    runtime: python
+    buildCommand: "cd work-updates && npm install && npm run build && cd ../ && pip install -r requirements.txt"
+    startCommand: "gunicorn -k uvicorn.workers.UvicornWorker backend.app.main:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: NODE_VERSION
+        value: 20.0.0
+      - key: PORT
+        value: 5000
+      - key: ALLOWED_ORIGINS
+        value: '["*"]' # Update this later for security

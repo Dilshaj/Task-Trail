@@ -1,0 +1,14 @@
+id: 11ff1249-b116-4401-a815-6917146ba777
+userId: 2026999
+employeeId: 2026999
+userName: murali
+date: 2026-03-28
+checkIn: 2026-03-28T09:45:12.057505
+checkOut: None
+locationName: Andhra Pradesh, Bogapuram
+latitude: 17.705281
+longitude: 82.659257
+createdAt: 2026-03-28T04:15:12.177000
+status: Checked In
+checkInTime: 2026-03-28T09:45:12.057505
+checkOutTime: None

@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn instance to serve EduProva FastAPI Backend
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/var/www/work-updates/backend
+Environment="PATH=/var/www/work-updates/backend/venv/bin"
+EnvironmentFile=/var/www/work-updates/backend/.env
+ExecStart=/var/www/work-updates/backend/venv/bin/gunicorn \
+    -c /var/www/work-updates/deployment/gunicorn_config.py \
+    app.main:app
+
+[Install]
+WantedBy=multi-user.target

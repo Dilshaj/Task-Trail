@@ -1,0 +1,17 @@
+fastapi[all]
+uvicorn[standard]
+sqlalchemy
+pyodbc
+python-dotenv
+pydantic
+pydantic-settings
+passlib[bcrypt]
+cloudinary
+bcrypt==4.0.1
+python-jose[cryptography]
+jinja2
+xhtml2pdf
+gunicorn
+pandas
+openpyxl
+python-multipart

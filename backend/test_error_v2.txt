@@ -1,0 +1,25 @@
+﻿.\venv\Scripts\python : 
+INFO:app.db.database:\u2705 
+SQL Server engine configured 
+successfully.
+At line:1 char:1
++ .\venv\Scripts\python 
+test_login_final.py 2>&1 | 
+Out-File -FilePath t ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (INFO:ap  
+  p.db.dat...d successfull   
+ y.:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+Testing login for: dilshajceo@dilshajinfotech.tech / admin@123
+Error: (pyodbc.ProgrammingError) ('42S22', "[42S22] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Invalid column name 'avatar'. (207) (SQLExecDirectW); [42S22] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Statement(s) could not be prepared. (8180)")
+[SQL: SELECT TOP 1 employees_table.id AS employees_table_id, employees_table.name AS employees_table_name, employees_table.employee_id AS employees_table_employee_id, employees_table.email AS employees_table_email, employees_table.password_hash AS employees_table_password_hash, employees_table.is_first_login AS employees_table_is_first_login, employees_table.user_role AS employees_table_user_role, employees_table.avatar AS employees_table_avatar, employees_table.daily_progress AS employees_table_daily_progress, employees_table.weekly_progress AS employees_table_weekly_progress, employees_table.project_id AS employees_table_project_id, employees_table.created_at AS employees_table_created_at, employees_table.updated_at AS employees_table_updated_at 
+FROM employees_table 
+WHERE employees_table.email = ?]
+[parameters: ('dilshajceo@dilshajinfotech.tech',)]
+(Background on this error at: https://sqlalche.me/e/20/f405)
