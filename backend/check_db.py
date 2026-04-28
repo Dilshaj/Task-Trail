@@ -1,21 +1,21 @@
 import asyncio
-import os
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from app.db.mongo import db
 
-load_dotenv()
-
-async def list_collections():
-    uri = os.getenv("MONGO_URI")
-    db_name = os.getenv("DB_NAME", "worksheet_db")
-    client = AsyncIOMotorClient(uri)
-    db = client[db_name]
-    collections = await db.list_collection_names()
-    print(f"Collections in {db_name}: {collections}")
+async def run():
+    db.connect()
     
-    for coll in ['Attendance', 'attendance', 'Employees', 'employees', 'Tasks', 'tasks', 'Projects', 'projects']:
-        count = await db[coll].count_documents({})
-        print(f"Collection '{coll}' count: {count}")
+    print("--- EMPLOYEES ---")
+    emp_cursor = db.employees.find({})
+    async for emp in emp_cursor:
+        print(emp.get("name"), "=>", emp.get("avatar"))
+
+    print("--- PROJECTS ---")
+    proj_cursor = db.projects.find({})
+    async for proj in proj_cursor:
+        print(proj.get("name"), "=> image:", proj.get("image"), " image_url:", proj.get("image_url"))
+
+    db.close()
 
 if __name__ == "__main__":
-    asyncio.run(list_collections())
+    asyncio.run(run())
