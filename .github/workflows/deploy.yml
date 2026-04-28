@@ -1,51 +1,59 @@
-name: Fullstack Deploy
+name: Deploy EduProva to EC2
 
 on:
   push:
     branches:
       - main
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key.pem
-          chmod 600 ~/.ssh/key.pem
+      - name: Deploy to EC2 using SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
 
-      - name: Deploy to EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          
-          cd ~/Work-Sheet
+            echo "Go to project"
+            cd /var/www/work-updates
 
-          echo "🔄 Pulling latest code"
-          git fetch origin
-          git reset --hard origin/main
+            echo "Pull latest code"
+            git fetch --all
+            git reset --hard origin/main || git reset --hard origin/master
 
-          echo "🐍 Backend setup"
-          cd backend
-          source venv/bin/activate
-          
-          # Load env variables
-          export $(cat .env | xargs)
-          
-          pip install -r requirements.txt
+            echo "Backend deploy"
+            cd /var/www/work-updates/backend
 
-          # Restart backend safely
-          pm2 restart backend || pm2 start "venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 5000" --name backend
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
 
-          echo "⚛️ Frontend build"
-          cd ../work-updates
-          npm install
-          npm run build
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install gunicorn uvicorn motor pymongo
 
-          echo "🌐 Restart nginx"
-          sudo systemctl restart nginx
+            echo "Frontend deploy"
+            cd /var/www/work-updates/work-updates
+            echo "VITE_API_BASE_URL=/api" > .env
+            npm install
+            npm run build
 
-          echo "✅ Deployment done"
+            echo "Restart PM2"
+            pm2 restart eduprova-backend || pm2 start "/var/www/work-updates/backend/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 127.0.0.1:8000" --name eduprova-backend --cwd /var/www/work-updates/backend
 
-          EOF
+            pm2 restart eduprova-frontend || pm2 start "serve -s dist -l 3000" --name eduprova-frontend --cwd /var/www/work-updates/work-updates
+
+            pm2 save
+
+            echo "Restart Nginx"
+            sudo nginx -t
+            sudo systemctl restart nginx
+
+            echo "Deployment completed"
