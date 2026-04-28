@@ -20,7 +20,7 @@ cloudinary.config(
     api_secret="3oKYOpuJTUAIU0aZO58Bpa1luc"
 )
 
-@router.get("/", response_model=List[ProjectResponse])
+@router.get("", response_model=List[ProjectResponse])
 async def get_projects(skip: int = 0, limit: int = 100):
     try:
         return await project_service.get_projects(skip=skip, limit=limit)
@@ -45,9 +45,8 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # 3. Generate Local URL
-        base_url = str(request.base_url).rstrip("/")
-        final_url = f"{base_url}/uploads/projects/{filename}"
+        # 3. Generate Local URL (Relative for Nginx compatibility)
+        final_url = f"/uploads/projects/{filename}"
         print(f"✅ LOGO LOCAL SAVED: {final_url}")
 
         # 4. Attempt Cloudinary Sync as secondary
@@ -70,7 +69,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         logger.error(f"🔥 Image Upload Route Error: {e}")
         return {"image_url": DEFAULT_IMAGE}
 
-@router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def add_project(project: ProjectCreate):
     return await project_service.create_project(project=project)
 

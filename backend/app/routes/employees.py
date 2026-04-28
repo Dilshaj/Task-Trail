@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/employees")
 
-@router.get("/", response_model=List[EmployeeResponse])
+@router.get("", response_model=List[EmployeeResponse])
 async def get_employees(
     project_id: Optional[str] = Query(None), # 🛡️ SECURED: Optional project filtering
     skip: int = 0, 
@@ -23,7 +23,7 @@ async def get_employees(
     """Retrieve employees, supporting both project-specific and company-wide views."""
     return await employee_service.get_employees(skip=skip, limit=limit, project_id=project_id)
 
-@router.post("/", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
 async def create_employee(employee: EmployeeCreate):
     try:
         return await employee_service.create_employee(employee)
@@ -64,9 +64,8 @@ async def update_employee(id: str, employee_update: EmployeeUpdate, request: Req
                 with open(file_path, "wb") as f:
                     f.write(base64.b64decode(encoded))
                 
-                # 3. Generate Local URL
-                base_url = str(request.base_url).rstrip("/")
-                local_url = f"{base_url}/uploads/avatars/{filename}"
+                # 3. Generate Local URL (Relative for Nginx compatibility)
+                local_url = f"/uploads/avatars/{filename}"
                 employee_update.avatar = local_url
                 
                 # 4. Sync to Cloudinary
