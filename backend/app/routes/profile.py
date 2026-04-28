@@ -72,10 +72,8 @@ async def update_profile(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(profile_image.file, buffer)
             
-            # 3. Generate full URL
-            # We use the current request to get the base URL (e.g., http://localhost:5000)
-            base_url = str(request.base_url).rstrip("/")
-            local_url = f"{base_url}/uploads/avatars/{filename}"
+            # 3. Generate Local URL (Relative for Nginx compatibility)
+            local_url = f"/uploads/avatars/{filename}"
             
             update_data["avatar"] = local_url
             print(f"📸 [PROFILE UPDATE] Local Image Saved: {local_url}")
