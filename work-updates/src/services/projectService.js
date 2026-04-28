@@ -3,7 +3,7 @@ const API_URL = 'projects';
 
 export const getProjects = async (skip = 0, limit = 100) => {
     try {
-        const response = await api.get(`${API_URL}/`, {
+        const response = await api.get(`${API_URL}`, {
             params: { skip, limit }
         });
         return response.data;
@@ -25,7 +25,7 @@ export const getProject = async (id) => {
 
 export const addProject = async (projectData) => {
     try {
-        const response = await api.post(`${API_URL}/`, projectData);
+        const response = await api.post(`${API_URL}`, projectData);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.detail || 'Failed to create project');
