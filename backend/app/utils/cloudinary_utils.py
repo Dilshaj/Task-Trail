@@ -4,7 +4,8 @@ import os
 from dotenv import load_dotenv
 import logging
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # backend/
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 logger = logging.getLogger(__name__)
 
 # 🔒 Centralized Cloudinary Config
