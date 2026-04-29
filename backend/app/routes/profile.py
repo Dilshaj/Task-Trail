@@ -59,39 +59,20 @@ async def update_profile(
     # Handle image upload
     if profile_image and profile_image.filename:
         try:
-            # 1. Create local directory (absolute path)
-            BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
-            upload_dir = os.path.join(BASE_DIR, "uploads", "avatars")
-            os.makedirs(upload_dir, exist_ok=True)
+            # 1. Upload directly to Cloudinary (Persistent storage for production)
+            # Reset file pointer just in case it was read elsewhere
+            profile_image.file.seek(0)
+            cloudinary_url = upload_to_cloudinary(profile_image.file, folder="avatars")
             
-            # 2. Save locally
-            file_extension = os.path.splitext(profile_image.filename)[1]
-            filename = f"{user_id}_{int(datetime.now().timestamp())}{file_extension}"
-            file_path = os.path.join(upload_dir, filename)
-            
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(profile_image.file, buffer)
-            
-            # 3. Generate Local URL (Relative for Nginx compatibility)
-            local_url = f"/uploads/avatars/{filename}"
-            
-            update_data["avatar"] = local_url
-            print(f"📸 [PROFILE UPDATE] Local Image Saved: {local_url}")
-            
-            # 4. Try Cloudinary as backup/primary if configured
-            try:
-                # Open file in binary mode for cloudinary
-                with open(file_path, "rb") as f_in:
-                    cloudinary_url = upload_to_cloudinary(f_in, folder="avatars")
-                    if cloudinary_url:
-                        update_data["avatar"] = cloudinary_url
-                        print(f"☁️ [PROFILE UPDATE] Cloudinary Sync Success: {cloudinary_url}")
-            except Exception as ce:
-                print(f"⚠️ [PROFILE UPDATE] Cloudinary Sync Failed (falling back to local): {ce}")
+            if cloudinary_url:
+                update_data["avatar"] = cloudinary_url
+                print(f"☁️ [PROFILE UPDATE] Cloudinary Success: {cloudinary_url}")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
 
         except Exception as e:
-            logger.error(f"Image upload failed: {e}")
-            print(f"❌ [PROFILE UPDATE] Upload Failed: {str(e)}")
+            logger.error(f"❌ Cloudinary Upload Failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
     # Atomic Update in MongoDB
     result = await db.employees.find_one_and_update(

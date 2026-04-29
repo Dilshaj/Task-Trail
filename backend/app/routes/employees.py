@@ -44,41 +44,20 @@ async def update_employee(id: str, employee_update: EmployeeUpdate, request: Req
     """Update employee, converting base64 to local/Cloudinary storage."""
     try:
         if employee_update.avatar and employee_update.avatar.startswith("data:image"):
-            # If it's base64, we'll save it locally first to fulfill the 'uploads folder' requirement
             try:
-                # 1. Create local directory (absolute path)
-                BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
-                upload_dir = os.path.join(BASE_DIR, "uploads", "avatars")
-                os.makedirs(upload_dir, exist_ok=True)
+                # 1. Upload base64 directly to Cloudinary (Persistent storage)
+                cloudinary_url = upload_base64_image(employee_update.avatar, folder="avatars")
                 
-                # 2. Extract base64
-                import base64
-                header, encoded = employee_update.avatar.split(",", 1)
-                file_extension = ".png" # Default or extract from header
-                if "image/jpeg" in header: file_extension = ".jpg"
-                elif "image/webp" in header: file_extension = ".webp"
-                
-                filename = f"{id}_{int(datetime.now().timestamp())}{file_extension}"
-                file_path = os.path.join(upload_dir, filename)
-                
-                with open(file_path, "wb") as f:
-                    f.write(base64.b64decode(encoded))
-                
-                # 3. Generate Local URL (Relative for Nginx compatibility)
-                local_url = f"/uploads/avatars/{filename}"
-                employee_update.avatar = local_url
-                
-                # 4. Sync to Cloudinary
-                try:
-                    with open(file_path, "rb") as f_in:
-                        cloudinary_url = upload_to_cloudinary(f_in, folder="employees")
-                        if cloudinary_url:
-                            employee_update.avatar = cloudinary_url
-                except Exception as ce:
-                    logger.warning(f"Cloudinary sync failed: {ce}")
+                if cloudinary_url:
+                    employee_update.avatar = cloudinary_url
+                    print(f"☁️ [EMPLOYEE UPDATE] Cloudinary Success: {cloudinary_url}")
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to upload base64 to Cloudinary")
 
             except Exception as e:
-                logger.error(f"Base64 processing failed: {e}")
+                logger.error(f"❌ Cloudinary Base64 Upload Failed: {e}")
+                # We can choose to keep the base64 or fail. User wants persistent Cloudinary, so fail if it doesn't work.
+                raise HTTPException(status_code=500, detail="Image upload failed")
 
         updated = await employee_service.update_employee(id, employee_update)
         if not updated:

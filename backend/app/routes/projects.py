@@ -32,38 +32,19 @@ async def get_projects(skip: int = 0, limit: int = 100):
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """Upload project logo with local storage priority and Cloudinary sync."""
     try:
-        # 1. Ensure local directory exists (absolute path)
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
-        upload_dir = os.path.join(BASE_DIR, "uploads", "projects")
-        os.makedirs(upload_dir, exist_ok=True)
+        # 1. Upload directly to Cloudinary (Persistent storage)
+        file.file.seek(0)
+        cloudinary_url = upload_to_cloudinary(file.file, folder="projects")
         
-        # 2. Save locally
-        file_extension = os.path.splitext(file.filename)[1]
-        filename = f"proj_{int(datetime.now().timestamp())}{file_extension}"
-        file_path = os.path.join(upload_dir, filename)
-        
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # 3. Generate Local URL (Relative for Nginx compatibility)
-        final_url = f"/uploads/projects/{filename}"
-        print(f"✅ LOGO LOCAL SAVED: {final_url}")
-
-        # 4. Attempt Cloudinary Sync as secondary
-        try:
-             # Reset file pointer for Cloudinary
-            with open(file_path, "rb") as f_in:
-                cloudinary.config(cloud_name="dv1sih7vk")
-                cloudinary_url = upload_to_cloudinary(f_in, folder="projects")
-                
-                # Only use Cloudinary URL if it's from the correct account
-                if cloudinary_url and "dv1sih7vk" in cloudinary_url:
-                    final_url = cloudinary_url
-                    print(f"☁️ LOGO CLOUDINARY SYNC: {final_url}")
-        except Exception as ce:
-            logger.warning(f"⚠️ Cloudinary Logo Sync Failed (using local): {ce}")
+        if cloudinary_url:
+            print(f"☁️ [PROJECT LOGO] Cloudinary Success: {cloudinary_url}")
+            return {"image_url": cloudinary_url}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to get URL from Cloudinary")
             
-        return {"image_url": final_url}
+    except Exception as e:
+        logger.error(f"🔥 Project Image Upload Error: {e}")
+        return {"image_url": DEFAULT_IMAGE}
         
     except Exception as e:
         logger.error(f"🔥 Image Upload Route Error: {e}")
