@@ -107,7 +107,7 @@ async def update_profile(
         }
     except Exception as e:
         import traceback
-        logger.error(f"🔥 GLOBAL PROFILE UPDATE ERROR: {str(e)}")
+        logger.error(f"GLOBAL PROFILE UPDATE ERROR: {str(e)}")
         logger.error(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise e

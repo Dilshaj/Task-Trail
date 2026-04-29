@@ -43,7 +43,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
     except Exception as e:
-        logger.error(f"👤 AUTH DEPENDENCY ERROR: {str(e)}")
+        logger.error(f"AUTH DEPENDENCY ERROR: {str(e)}")
         raise credentials_exception
 
 @router.post("/login")

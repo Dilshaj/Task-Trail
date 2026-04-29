@@ -45,7 +45,7 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     import traceback
-    logger.error(f"🔥 GLOBAL ERROR: {str(exc)}")
+    logger.error(f"GLOBAL ERROR: {str(exc)}")
     logger.error(traceback.format_exc())
     return JSONResponse(
         status_code=500,
