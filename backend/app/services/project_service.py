@@ -4,7 +4,6 @@ from app.utils.cloudinary_utils import upload_base64_image, DEFAULT_IMAGE
 from bson import ObjectId
 from datetime import datetime
 import logging
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +13,12 @@ def format_project(project):
         
     img_url = project.get("image")
     
-    # 🛡️ RELAXED GUARD: 
-    # Only replace if URL is empty or contains "dzvk36pqu" (ghost account)
-    # BUT allow local URLs (starting with http/https and containing /uploads/)
-    
+    # 🛡️ CLOUDINARY-ONLY GUARD
     is_broken = not img_url or img_url == "" or img_url == "undefined" or img_url == "null"
     is_ghost = "dzvk36pqu" in str(img_url).lower()
     
     must_replace = is_broken or is_ghost
-
     final_img = DEFAULT_IMAGE if must_replace else img_url
-
-    # 🔄 CACHE BREAKER: Add timestamp only if it doesn't have one and is a known image URL
-    if not must_replace and "?" not in str(final_img) and ("cloudinary" in str(final_img) or "uploads" in str(final_img)):
-        final_img = f"{final_img}?v={int(time.time())}"
 
     formatted = {
         "id": str(project.get("_id")),

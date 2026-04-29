@@ -3,8 +3,6 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, R
 from typing import Optional
 from bson import ObjectId
 from datetime import datetime
-import shutil
-import os
 
 from app.db.mongo import db
 from app.schemas.schemas import UserResponse
@@ -29,7 +27,6 @@ async def get_profile(user_id: str):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Ensure the user object has an 'id' field for the response model
         user["id"] = str(user["_id"])
         return user
     except Exception:
@@ -45,10 +42,7 @@ async def update_profile(
     profile_image: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
-    """Update profile with Cloudinary storage."""
-    print(f"🚀 [DEBUG] Update Profile triggered for: {name} ({email})")
-    print(f"📦 [DEBUG] Profile Image: {profile_image.filename if profile_image else 'None'}")
-    
+    """Update profile using Cloudinary directly (No local storage)."""
     try:
         user_id = current_user.get("id")
         
@@ -66,20 +60,15 @@ async def update_profile(
             except ValueError:
                 pass
 
-        # Handle image upload
         if profile_image and profile_image.filename:
-            # 1. Read bytes directly (Robust way for FastAPI UploadFile)
             contents = await profile_image.read()
             cloudinary_url = upload_to_cloudinary(contents, folder="avatars")
             
             if cloudinary_url:
                 update_data["avatar"] = cloudinary_url
-                print(f"☁️ [PROFILE UPDATE] Cloudinary Success: {cloudinary_url}")
             else:
-                raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
+                raise HTTPException(status_code=500, detail="Cloudinary upload failed")
 
-        print(f"📝 [DEBUG] Final Update Data: {update_data}")
-        # Atomic Update in MongoDB
         result = await db.employees.find_one_and_update(
             {"_id": ObjectId(user_id)},
             {"$set": update_data},
@@ -87,10 +76,7 @@ async def update_profile(
         )
         
         if not result:
-            print(f"❌ [DEBUG] User NOT found in DB for ID: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
-        
-        print(f"✅ [DEBUG] DB Update Success. New Avatar: {result.get('avatar')}")
         
         return {
             "message": "Profile updated successfully",
@@ -106,9 +92,6 @@ async def update_profile(
             }
         }
     except Exception as e:
-        import traceback
-        logger.error(f"GLOBAL PROFILE UPDATE ERROR: {str(e)}")
-        logger.error(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))

@@ -13,12 +13,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const userData = await login(email, employeeId, password);
             const normalizeAvatar = (u) => {
-                if (u.avatar) {
-                    // Logic to ensure it's a valid URL or path
-                    if (!u.avatar.includes('http') && u.avatar.startsWith('/uploads')) {
-                        // Let the proxy handle it
-                    }
-                } else {
+                if (!u.avatar) {
                     u.avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random&color=fff&bold=true`;
                 }
                 return u;

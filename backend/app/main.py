@@ -52,22 +52,7 @@ async def global_exception_handler(request, exc):
         content={"detail": "Internal Server Error", "msg": str(exc)}
     )
 
-# 🔹 Static & Uploads (absolute paths so server works from any CWD)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
-
-for folder in [STATIC_DIR, UPLOADS_DIR]:
-    os.makedirs(folder, exist_ok=True)
-
-# Ensure uploads subdirectories exist
-os.makedirs(os.path.join(UPLOADS_DIR, "avatars"), exist_ok=True)
-os.makedirs(os.path.join(UPLOADS_DIR, "projects"), exist_ok=True)
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-
-# 🔹 API Routes (High Priority first)
+# --- API Routes (High Priority first)
 app.include_router(pay_slips.router, prefix="/api", tags=["Pay Slips"])
 app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(employees.router, prefix="/api", tags=["Employees"])
@@ -79,12 +64,12 @@ app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(offer_letter.router, prefix="/api", tags=["Offer Letter"])
 app.include_router(employee_leaves.router, prefix="/api", tags=["Leaves"])
 
-# 🔹 Health
+# --- Health
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "version": "v1.1.0-final-fix"}
+    return {"status": "healthy", "version": "v1.1.0-cloudinary-only"}
 
-# 🔹 React SPA Frontend (MUST BE LAST)
+# --- React SPA Frontend (MUST BE LAST)
 FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "work-updates", "dist")
 
 if os.path.exists(FRONTEND_PATH):
@@ -94,7 +79,7 @@ if os.path.exists(FRONTEND_PATH):
 
     @app.get("/{full_path:path}")
     async def serve_react_app(full_path: str):
-        if any(full_path.startswith(p) for p in ["api", "static", "uploads", "assets"]):
+        if any(full_path.startswith(p) for p in ["api", "assets"]):
              return JSONResponse(status_code=404, content={"detail": f"Route not found: {full_path}"})
         
         file_path = os.path.join(FRONTEND_PATH, full_path)

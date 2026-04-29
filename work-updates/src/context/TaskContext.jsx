@@ -24,7 +24,6 @@ export const TaskProvider = ({ children }) => {
             getEmployees(null) // 🌐 Fetch everyone for the Team Panel
         ])
             .then(([tasksData, empData, allData]) => {
-                // Keep relative paths as-is; Vite proxy (dev) / Nginx (prod) handles /uploads
                 setTasks(tasksData);
                 setEmployees(empData);
                 setAllEmployees(allData);
@@ -71,7 +70,6 @@ export const TaskProvider = ({ children }) => {
     const fetchEmployees = async () => {
         const fresh = await getEmployees(selectedProjectId);
         const global = await getEmployees(null);
-        // Keep relative paths as-is; Vite proxy (dev) / Nginx (prod) handles /uploads
         setEmployees(fresh);
         setAllEmployees(global);
     };
