@@ -32,9 +32,9 @@ async def get_projects(skip: int = 0, limit: int = 100):
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """Upload project logo with local storage priority and Cloudinary sync."""
     try:
-        # 1. Upload directly to Cloudinary (Persistent storage)
-        file.file.seek(0)
-        cloudinary_url = upload_to_cloudinary(file.file, folder="projects")
+        # 1. Read bytes (Robust Way)
+        contents = await file.read()
+        cloudinary_url = upload_to_cloudinary(contents, folder="projects")
         
         if cloudinary_url:
             print(f"☁️ [PROJECT LOGO] Cloudinary Success: {cloudinary_url}")

@@ -59,10 +59,9 @@ async def update_profile(
     # Handle image upload
     if profile_image and profile_image.filename:
         try:
-            # 1. Upload directly to Cloudinary (Persistent storage for production)
-            # Reset file pointer just in case it was read elsewhere
-            profile_image.file.seek(0)
-            cloudinary_url = upload_to_cloudinary(profile_image.file, folder="avatars")
+            # 1. Read bytes directly (Robust way for FastAPI UploadFile)
+            contents = await profile_image.read()
+            cloudinary_url = upload_to_cloudinary(contents, folder="avatars")
             
             if cloudinary_url:
                 update_data["avatar"] = cloudinary_url
@@ -71,14 +70,17 @@ async def update_profile(
                 raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
 
         except Exception as e:
-            logger.error(f"❌ Cloudinary Upload Failed: {e}")
+            import traceback
+            logger.error(f"❌ Profile Update Error: {str(e)}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
+    from pymongo import ReturnDocument
     # Atomic Update in MongoDB
     result = await db.employees.find_one_and_update(
         {"_id": ObjectId(user_id)},
         {"$set": update_data},
-        return_document=True
+        return_document=ReturnDocument.AFTER
     )
     
     if not result:
