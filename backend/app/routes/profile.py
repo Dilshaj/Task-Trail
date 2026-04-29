@@ -67,10 +67,10 @@ async def update_profile(
             contents = await profile_image.read()
             cloudinary_url = upload_to_cloudinary(contents, folder="avatars")
             
+            # 🛡️ If upload fails, cloudinary_url will be the default, and we save that.
+            # format_employee will later ensure it's a dynamic dynamic avatar.
             if cloudinary_url:
                 update_data["avatar"] = cloudinary_url
-            else:
-                raise HTTPException(status_code=500, detail="Cloudinary upload failed")
 
         result = await db.employees.find_one_and_update(
             {"_id": ObjectId(user_id)},

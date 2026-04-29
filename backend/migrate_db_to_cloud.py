@@ -14,7 +14,7 @@ async def migrate_avatars():
     
     # 1. Migrate Employees
     print("Migrating Employees...")
-    cursor = db.Employees.find({}) # Matching mongo.py casing
+    cursor = db.Employees.find({})
     count = 0
     async for emp in cursor:
         avatar = emp.get("avatar")
@@ -23,8 +23,10 @@ async def migrate_avatars():
         # Check if needs replacement
         is_broken = not avatar or avatar == "" or avatar == "undefined" or avatar == "null" or "/uploads/" in str(avatar)
         is_ghost = "dzvk36pqu" in str(avatar).lower()
+        is_system = "name=System" in str(avatar)
         
-        if is_broken or is_ghost:
+        if is_broken or is_ghost or is_system:
+            # DYNAMIC NAME FIX
             new_avatar = f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&background=random&color=fff&bold=true"
             await db.Employees.update_one({"_id": emp["_id"]}, {"$set": {"avatar": new_avatar}})
             count += 1

@@ -55,8 +55,6 @@ async def calculate_progress_for_employee(obj_id_input, emp_id_str: str = None):
         logger.error(f"Error calculating progress: {e}")
         return 0.0, 0.0
 
-from app.utils.cloudinary_utils import DEFAULT_IMAGE
-
 def format_employee(emp):
     """
     Standard formatter that uses PERSISTED data from MongoDB.
@@ -66,13 +64,17 @@ def format_employee(emp):
         return None
         
     avatar = emp.get("avatar")
+    name = emp.get("name", "User")
     
-    # 🛡️ CLOUDINARY-ONLY GUARD
+    # 🛡️ CLOUDINARY-ONLY GUARD (Aggressive replacement of broken/local paths)
     is_broken = not avatar or avatar == "" or avatar == "undefined" or avatar == "null" or "/uploads/" in str(avatar)
     is_ghost = "dzvk36pqu" in str(avatar).lower()
     
-    must_replace = is_broken or is_ghost
-    final_avatar = DEFAULT_IMAGE if must_replace else avatar
+    if is_broken or is_ghost:
+        # Generate dynamic avatar based on the REAL name
+        final_avatar = f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&background=random&color=fff&bold=true"
+    else:
+        final_avatar = avatar
 
     # Get persisted values (defaulting to 0.0 if never set)
     work_prog = float(emp.get("work_progress_perc", 0.0))
@@ -83,7 +85,7 @@ def format_employee(emp):
         "_id": str(emp.get("_id")),
         "employeeId": emp.get("employee_id"),
         "employee_id": emp.get("employee_id"),
-        "name": emp.get("name"),
+        "name": name,
         "role": emp.get("role"),
         "email": emp.get("email"),
         "avatar": final_avatar,
