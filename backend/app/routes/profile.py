@@ -39,26 +39,26 @@ async def update_profile(
     profile_image: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
-    """Update profile with local storage support and Cloudinary fallback."""
-    user_id = current_user.get("id")
-    
-    update_data = {
-        "name": name,
-        "email": email
-    }
-    
-    if joining_date:
-        try:
-            join_date_obj = datetime.strptime(joining_date, '%Y-%m-%d')
-            if join_date_obj > datetime.now():
-                raise HTTPException(status_code=400, detail="Joining date cannot be in the future.")
-            update_data["joining_date"] = joining_date
-        except ValueError:
-            pass
+    """Update profile with Cloudinary storage."""
+    try:
+        user_id = current_user.get("id")
+        
+        update_data = {
+            "name": name,
+            "email": email
+        }
+        
+        if joining_date:
+            try:
+                join_date_obj = datetime.strptime(joining_date, '%Y-%m-%d')
+                if join_date_obj > datetime.now():
+                    raise HTTPException(status_code=400, detail="Joining date cannot be in the future.")
+                update_data["joining_date"] = joining_date
+            except ValueError:
+                pass
 
-    # Handle image upload
-    if profile_image and profile_image.filename:
-        try:
+        # Handle image upload
+        if profile_image and profile_image.filename:
             # 1. Read bytes directly (Robust way for FastAPI UploadFile)
             contents = await profile_image.read()
             cloudinary_url = upload_to_cloudinary(contents, folder="avatars")
@@ -69,33 +69,34 @@ async def update_profile(
             else:
                 raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
 
-        except Exception as e:
-            import traceback
-            logger.error(f"❌ Profile Update Error: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
-
-    from pymongo import ReturnDocument
-    # Atomic Update in MongoDB
-    result = await db.employees.find_one_and_update(
-        {"_id": ObjectId(user_id)},
-        {"$set": update_data},
-        return_document=ReturnDocument.AFTER
-    )
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "message": "Profile updated successfully",
-        "user": {
-            "id": str(result["_id"]),
-            "employeeId": result.get("employee_id"),
-            "name": result.get("name"),
-            "email": result.get("email"),
-            "role": result.get("role"),
-            "avatar": result.get("avatar"),
-            "projectId": result.get("project_id"),
-            "joiningDate": result.get("joining_date"),
+        from pymongo import ReturnDocument
+        # Atomic Update in MongoDB
+        result = await db.employees.find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data},
+            return_document=ReturnDocument.AFTER
+        )
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "message": "Profile updated successfully",
+            "user": {
+                "id": str(result["_id"]),
+                "employeeId": result.get("employee_id"),
+                "name": result.get("name"),
+                "email": result.get("email"),
+                "role": result.get("role"),
+                "avatar": result.get("avatar"),
+                "projectId": result.get("project_id"),
+                "joiningDate": result.get("joining_date"),
+            }
         }
-    }
+    except Exception as e:
+        import traceback
+        logger.error(f"🔥 GLOBAL PROFILE UPDATE ERROR: {str(e)}")
+        logger.error(traceback.format_exc())
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
