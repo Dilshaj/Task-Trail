@@ -46,10 +46,10 @@ async def update_employee(id: str, employee_update: EmployeeUpdate, request: Req
         if employee_update.avatar and employee_update.avatar.startswith("data:image"):
             # If it's base64, we'll save it locally first to fulfill the 'uploads folder' requirement
             try:
-                # 1. Create local directory
-                upload_dir = os.path.join("uploads", "avatars")
-                if not os.path.exists(upload_dir):
-                    os.makedirs(upload_dir)
+                # 1. Create local directory (absolute path)
+                BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
+                upload_dir = os.path.join(BASE_DIR, "uploads", "avatars")
+                os.makedirs(upload_dir, exist_ok=True)
                 
                 # 2. Extract base64
                 import base64

@@ -32,10 +32,10 @@ async def get_projects(skip: int = 0, limit: int = 100):
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """Upload project logo with local storage priority and Cloudinary sync."""
     try:
-        # 1. Ensure local directory exists
-        upload_dir = os.path.join("uploads", "projects")
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir)
+        # 1. Ensure local directory exists (absolute path)
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
+        upload_dir = os.path.join(BASE_DIR, "uploads", "projects")
+        os.makedirs(upload_dir, exist_ok=True)
         
         # 2. Save locally
         file_extension = os.path.splitext(file.filename)[1]

@@ -16,11 +16,10 @@ async def get_attendance_logs(project_id: Optional[str] = None, skip: int = 0, l
 @router.post("/check-in")
 async def employee_check_in(request: dict):
     """Handles an employee check-in with MongoDB."""
-    # 🔍 Grab ID from either field (dict-safe)
     emp_id = request.get('employee_id') or request.get('employeeId')
-    
+
     logger.info(f"📥 [ATTENDANCE] Check-in request received for: {emp_id}")
-    
+
     if not emp_id:
         raise HTTPException(status_code=400, detail="Employee ID is missing in request body")
 
@@ -31,12 +30,12 @@ async def employee_check_in(request: dict):
             longitude=request.get('longitude'),
             location_name=request.get('location_name')
         )
-        
+
         if not is_new:
-            # 🛑 Return a CLEAN string to avoid [object Object]
-            raise HTTPException(status_code=400, detail="Attendance already marked for today.")
-        
-        return log
+            # ✅ Return 200 with a flag instead of 400 to avoid browser error logs
+            return {**log, "already_checked_in": True, "message": "Attendance already marked for today."}
+
+        return {**log, "already_checked_in": False}
     except HTTPException:
         raise
     except Exception as e:

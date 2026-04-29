@@ -62,30 +62,31 @@ export const AttendanceProvider = ({ children }) => {
         if (!user) return;
         const empId = user.employee_id || user.employeeId;
 
-        console.log("Checking in...", empId);
-
         let latitude = null;
         let longitude = null;
         let locationName = null;
 
+        // 🌐 Try browser geolocation (HTTPS only) — silently fall back on HTTP
         const getBrowserLocation = () => {
             return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    console.warn("Geolocation not supported by this browser.");
+                // Geolocation requires HTTPS; skip silently on plain HTTP
+                const isSecure = window.location.protocol === 'https:' ||
+                    window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1';
+
+                if (!isSecure || !navigator.geolocation) {
                     resolve(null);
-                } else {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                        (err) => {
-                            console.warn("Geolocation denied/failed:", err.message);
-                            resolve(null);
-                        },
-                        { timeout: 10000, enableHighAccuracy: true }
-                    );
+                    return;
                 }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    () => resolve(null),  // silently fall back
+                    { timeout: 8000, enableHighAccuracy: false }
+                );
             });
         };
 
+        // 📡 IP-based fallback (always works, no HTTPS required)
         const getIPLocation = async () => {
             try {
                 const controller = new AbortController();
@@ -96,9 +97,7 @@ export const AttendanceProvider = ({ children }) => {
                 if (data && data.latitude) {
                     return { lat: data.latitude, lng: data.longitude, city: data.city, region: data.region };
                 }
-            } catch (err) {
-                console.warn("IP Location fallback failed/timed out");
-            }
+            } catch (_) { /* silent */ }
             return null;
         };
 
@@ -107,7 +106,7 @@ export const AttendanceProvider = ({ children }) => {
             const ipData = await getIPLocation();
             if (ipData) {
                 coords = { lat: ipData.lat, lng: ipData.lng };
-                locationName = `${ipData.city}, ${ipData.region}`;
+                locationName = [ipData.city, ipData.region].filter(Boolean).join(', ');
             }
         }
 
@@ -117,53 +116,60 @@ export const AttendanceProvider = ({ children }) => {
             if (!locationName) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 3000); // 🚀 3s max for address lookup
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`, {
-                        signal: controller.signal,
-                        headers: { 'Accept-Language': 'en', 'User-Agent': 'EduProva' }
-                    });
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+                        { signal: controller.signal, headers: { 'Accept-Language': 'en', 'User-Agent': 'EduProva' } }
+                    );
                     clearTimeout(timeoutId);
                     const data = await response.json();
                     if (data && data.address) {
                         const addr = data.address;
-                        const mainPart = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.village || "";
-                        const cityPart = addr.city || addr.town || addr.state_district || addr.state || "";
-                        locationName = mainPart;
-                        if (cityPart && cityPart !== mainPart) locationName = `${cityPart}${mainPart ? ', ' + mainPart : ''}`;
+                        const main = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.village || '';
+                        const city = addr.city || addr.town || addr.state_district || addr.state || '';
+                        locationName = city && city !== main ? `${city}${main ? ', ' + main : ''}` : main;
                     }
-                } catch (err) {
-                    console.warn("Reverse geocoding timed out or failed - proceeding with coordinates");
-                    locationName = "Location Captured (GPS)";
+                } catch (_) {
+                    locationName = 'Location Captured';
                 }
             }
         } else {
-            locationName = "Location access denied";
+            locationName = 'Remote Check-in';
         }
 
         try {
-            // 🛡️ Clean Payload: Only send what the schema expects
             const payload = {
                 employeeId: empId,
-                location_name: locationName || "Auto-detected Location"
+                location_name: locationName || 'Auto-detected Location'
             };
-
-            // Only add coords if we have them (as numbers)
             if (latitude !== null) payload.latitude = Number(latitude);
             if (longitude !== null) payload.longitude = Number(longitude);
 
             const newLog = await checkIn(payload);
+
+            // ✅ Backend returns 200 with already_checked_in flag (not a 400 anymore)
+            if (newLog.already_checked_in) {
+                // Just update the active log silently
+                setActiveLog(newLog);
+                return;
+            }
+
             setLogs(prev => [newLog, ...prev]);
             setActiveLog(newLog);
         } catch (error) {
-            // 🔍 Smart Unpacker: Get the clean message from our hardened service
-            const msg = error.message || "Check-in failed. Please try again.";
+            const msg = error.message || '';
 
-            // Final check to prevent exactly what the user saw
-            if (msg.includes("[object Object]") || typeof msg === 'object') {
-                alert("A technical connection error occurred. Please refresh the page.");
-            } else {
-                alert(msg);
+            // Fallback: handle old-style 'already' errors just in case
+            if (msg.toLowerCase().includes('already')) {
+                await fetchLogs(true);
+                return;
             }
+
+            // Only alert on genuine failures
+            const display = (msg.includes('[object Object]') || !msg)
+                ? 'A connection error occurred. Please try again.'
+                : msg;
+            alert(display);
         }
     };
 

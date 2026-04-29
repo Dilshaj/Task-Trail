@@ -24,17 +24,10 @@ export const TaskProvider = ({ children }) => {
             getEmployees(null) // 🌐 Fetch everyone for the Team Panel
         ])
             .then(([tasksData, empData, allData]) => {
-                const normalize = (data) => data.map(emp => {
-                    let avatar = emp.avatar;
-                    if (avatar && !avatar.includes('http') && avatar.startsWith('/')) {
-                        avatar = `${window.location.protocol}//${window.location.hostname}:8000${avatar}`;
-                    }
-                    return { ...emp, avatar };
-                });
-
+                // Keep relative paths as-is; Vite proxy (dev) / Nginx (prod) handles /uploads
                 setTasks(tasksData);
-                setEmployees(normalize(empData));
-                setAllEmployees(normalize(allData));
+                setEmployees(empData);
+                setAllEmployees(allData);
             })
             .catch(() => {
                 console.warn("Failed to fetch initial data.");
@@ -78,17 +71,9 @@ export const TaskProvider = ({ children }) => {
     const fetchEmployees = async () => {
         const fresh = await getEmployees(selectedProjectId);
         const global = await getEmployees(null);
-
-        const normalize = (data) => data.map(emp => {
-            let avatar = emp.avatar;
-            if (avatar && !avatar.includes('http') && avatar.startsWith('/')) {
-                avatar = `${window.location.protocol}//${window.location.hostname}:8000${avatar}`;
-            }
-            return { ...emp, avatar };
-        });
-
-        setEmployees(normalize(fresh));
-        setAllEmployees(normalize(global));
+        // Keep relative paths as-is; Vite proxy (dev) / Nginx (prod) handles /uploads
+        setEmployees(fresh);
+        setAllEmployees(global);
     };
 
     const addNewEmployee = async (employeeData) => {

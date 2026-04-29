@@ -59,10 +59,10 @@ async def update_profile(
     # Handle image upload
     if profile_image and profile_image.filename:
         try:
-            # 1. Create local directory
-            upload_dir = os.path.join("uploads", "avatars")
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
+            # 1. Create local directory (absolute path)
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend/
+            upload_dir = os.path.join(BASE_DIR, "uploads", "avatars")
+            os.makedirs(upload_dir, exist_ok=True)
             
             # 2. Save locally
             file_extension = os.path.splitext(profile_image.filename)[1]

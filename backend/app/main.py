@@ -52,12 +52,20 @@ async def global_exception_handler(request, exc):
         content={"detail": "Internal Server Error", "msg": str(exc)}
     )
 
-# 🔹 Static & Uploads
-for folder in ["static", "uploads"]:
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# 🔹 Static & Uploads (absolute paths so server works from any CWD)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+
+for folder in [STATIC_DIR, UPLOADS_DIR]:
+    os.makedirs(folder, exist_ok=True)
+
+# Ensure uploads subdirectories exist
+os.makedirs(os.path.join(UPLOADS_DIR, "avatars"), exist_ok=True)
+os.makedirs(os.path.join(UPLOADS_DIR, "projects"), exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # 🔹 API Routes (High Priority first)
 app.include_router(pay_slips.router, prefix="/api", tags=["Pay Slips"])
