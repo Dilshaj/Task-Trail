@@ -14,11 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects")
 
 # 🔒 RE-FORCE COMPANY CREDENTIALS
-cloudinary.config(
-    cloud_name="dv1sih7vk",
-    api_key="639177816396555",
-    api_secret="3oKYOpuJTUAIU0aZO58Bpa1luc"
-)
+# Cloudinary config handled centrally in utils
 
 @router.get("", response_model=List[ProjectResponse])
 async def get_projects(skip: int = 0, limit: int = 100):

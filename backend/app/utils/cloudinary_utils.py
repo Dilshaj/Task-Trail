@@ -7,13 +7,14 @@ import logging
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# 🔒 HARD-LINKED COMPANY ACCOUNT (dv1sih7vk)
-# This overrides any ghost variables and locks the app to your account.
+# 🔒 Centralized Cloudinary Config
 cloudinary.config(
-    cloud_name="dv1sih7vk",
-    api_key="639177816396555",
-    api_secret="3oKYOpuJTUAIU0aZO58Bpa1luc"
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dv1sih7vk"),
+    api_key=os.getenv("CLOUDINARY_API_KEY", "639177816396555"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET", "3oKYOpuJTUAIU0aZO58Bpa1luc"),
+    secure=True
 )
+print(f"☁️ [CLOUDINARY] Initialized with Cloud Name: {os.getenv('CLOUDINARY_CLOUD_NAME')}")
 
 # 🌐 RELIABLE PLACEHOLDER (UI-Avatars)
 DEFAULT_IMAGE = "https://ui-avatars.com/api/?name=System&background=random&color=fff&bold=true"
