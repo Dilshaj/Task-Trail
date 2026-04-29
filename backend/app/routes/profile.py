@@ -11,9 +11,15 @@ from app.schemas.schemas import UserResponse
 from app.routes.auth import get_current_user
 from app.utils.cloudinary_utils import upload_image as upload_to_cloudinary
 
+from pymongo import ReturnDocument
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/employee")
+
+@router.get("/test-health")
+async def profile_health():
+    return {"status": "ok", "message": "Profile router is reachable"}
 
 @router.get("/profile/{user_id}", response_model=UserResponse)
 async def get_profile(user_id: str):
@@ -69,7 +75,6 @@ async def update_profile(
             else:
                 raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
 
-        from pymongo import ReturnDocument
         # Atomic Update in MongoDB
         result = await db.employees.find_one_and_update(
             {"_id": ObjectId(user_id)},

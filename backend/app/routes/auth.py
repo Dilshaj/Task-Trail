@@ -32,16 +32,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         employee_id: str = payload.get("sub")
         if employee_id is None:
             raise credentials_exception
+            
+        user = await db.employees.find_one({"employee_id": employee_id})
+        if user is None:
+            raise credentials_exception
+        
+        # Flatten/Normalize user for usage in other routes
+        user["id"] = str(user["_id"])
+        return user
     except JWTError:
         raise credentials_exception
-        
-    user = await db.employees.find_one({"employee_id": employee_id})
-    if user is None:
+    except Exception as e:
+        logger.error(f"👤 AUTH DEPENDENCY ERROR: {str(e)}")
         raise credentials_exception
-    
-    # Flatten/Normalize user for usage in other routes
-    user["id"] = str(user["_id"])
-    return user
 
 @router.post("/login")
 async def login(request: LoginRequest):
