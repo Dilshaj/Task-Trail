@@ -54,3 +54,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# --- Production Settings Verification (Visible in Terminal)
+print("-" * 50)
+print(f"[CONFIG] Loading Settings from: {Settings.Config.env_file}")
+print(f"[CONFIG] Cloudinary: {settings.CLOUDINARY_CLOUD_NAME}")
+print(f"[CONFIG] API Key Checked: {'[OK]' if settings.CLOUDINARY_API_KEY else '[MISSING]'}")
+print(f"[CONFIG] API Secret Checked: {'[OK]' if settings.CLOUDINARY_API_SECRET else '[MISSING]'}")
+print("-" * 50)
