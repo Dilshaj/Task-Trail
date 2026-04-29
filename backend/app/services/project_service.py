@@ -71,10 +71,11 @@ async def update_project(project_id: str, project_update: ProjectUpdate):
         if project_update.image:
             update_data["image"] = project_update.image
                 
+        from pymongo import ReturnDocument
         result = await db.projects.find_one_and_update(
             {"_id": ObjectId(project_id)},
             {"$set": update_data},
-            return_document=True
+            return_document=ReturnDocument.AFTER
         )
         return format_project(result)
     except Exception as e:

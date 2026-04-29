@@ -46,6 +46,9 @@ async def update_profile(
     current_user: dict = Depends(get_current_user)
 ):
     """Update profile with Cloudinary storage."""
+    print(f"🚀 [DEBUG] Update Profile triggered for: {name} ({email})")
+    print(f"📦 [DEBUG] Profile Image: {profile_image.filename if profile_image else 'None'}")
+    
     try:
         user_id = current_user.get("id")
         
@@ -75,6 +78,7 @@ async def update_profile(
             else:
                 raise HTTPException(status_code=500, detail="Failed to retrieve URL from Cloudinary")
 
+        print(f"📝 [DEBUG] Final Update Data: {update_data}")
         # Atomic Update in MongoDB
         result = await db.employees.find_one_and_update(
             {"_id": ObjectId(user_id)},
@@ -83,7 +87,10 @@ async def update_profile(
         )
         
         if not result:
+            print(f"❌ [DEBUG] User NOT found in DB for ID: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
+        
+        print(f"✅ [DEBUG] DB Update Success. New Avatar: {result.get('avatar')}")
         
         return {
             "message": "Profile updated successfully",
