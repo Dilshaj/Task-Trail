@@ -8,9 +8,7 @@ const ProjectCard = ({ project, onEdit, onDelete, onBodyClick }) => {
         setImageError(true);
     };
 
-    const imageSrc = !imageError && project.image && project.image !== ''
-        ? project.image
-        : "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=500&auto=format&fit=crop";
+    const imageSrc = project.image || "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=500&auto=format&fit=crop";
 
     return (
         <div

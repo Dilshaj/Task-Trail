@@ -79,17 +79,14 @@ async def login(request: LoginRequest):
             {"$set": {"refresh_token": refresh_token}}
         )
 
+        from app.services.employee_service import format_employee
+        fm_user = format_employee(user)
+        
         # ✅ FLATTENED RESPONSE: Matches Login.jsx/App.jsx expectations
         return {
             "token": access_token,
             "refreshToken": refresh_token,
-            "id": str(user["_id"]),
-            "employeeId": user["employee_id"],
-            "name": user["name"],
-            "email": user.get("email"),
-            "role": user["role"], # E.g., "admin" or "user"
-            "avatar": user.get("avatar"),
-            "joiningDate": user.get("joining_date"),
+            **fm_user,
             "isFirstLogin": user.get("is_first_login", False)
         }
         

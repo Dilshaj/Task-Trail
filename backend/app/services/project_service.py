@@ -14,7 +14,7 @@ def format_project(project):
     img_url = project.get("image")
     
     # 🛡️ CLOUDINARY-ONLY GUARD
-    is_broken = not img_url or img_url == "" or img_url == "undefined" or img_url == "null"
+    is_broken = not img_url or img_url == "" or img_url == "undefined" or img_url == "null" or "/uploads/" in str(img_url)
     is_ghost = "dzvk36pqu" in str(img_url).lower()
     
     must_replace = is_broken or is_ghost

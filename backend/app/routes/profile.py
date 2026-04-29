@@ -45,6 +45,9 @@ async def update_profile(
     """Update profile using Cloudinary directly (No local storage)."""
     try:
         user_id = current_user.get("id")
+        logger.info(f"🚀 [UPLOAD] Received update for {user_id}")
+        logger.info(f"📝 Name: {name} | Email: {email}")
+        logger.info(f"🖼️ File: {profile_image.filename if profile_image else 'None'}")
         
         update_data = {
             "name": name,
@@ -78,18 +81,10 @@ async def update_profile(
         if not result:
             raise HTTPException(status_code=404, detail="User not found")
         
+        from app.services.employee_service import format_employee
         return {
             "message": "Profile updated successfully",
-            "user": {
-                "id": str(result["_id"]),
-                "employeeId": result.get("employee_id"),
-                "name": result.get("name"),
-                "email": result.get("email"),
-                "role": result.get("role"),
-                "avatar": result.get("avatar"),
-                "projectId": result.get("project_id"),
-                "joiningDate": result.get("joining_date"),
-            }
+            "user": format_employee(result)
         }
     except Exception as e:
         if isinstance(e, HTTPException):

@@ -98,23 +98,7 @@ const UserProfile = () => {
 
             const response = await updateProfile(formData);
 
-            // Append timestamp and domain to avatar URL to bypass browser cache
-            // Robust Avatar Normalization
             const updatedUser = { ...response.user };
-
-            if (updatedUser.avatar) {
-                // 1. If it's a relative path, ensure it uses the proxy or base URL
-                if (updatedUser.avatar.startsWith('/uploads')) {
-                    // It will work through the Vite proxy
-                }
-
-                // 2. Add cache buster to all non-default avatars to prevent blue background/old image
-                if (!updatedUser.avatar.includes('ui-avatars.com')) {
-                    const separator = updatedUser.avatar.includes('?') ? '&' : '?';
-                    updatedUser.avatar = `${updatedUser.avatar}${separator}t=${Date.now()}`;
-                }
-            }
-
             updateUser(updatedUser);
             await refreshEmployees(); // Update admin state with latest API response
 
@@ -163,10 +147,6 @@ const UserProfile = () => {
                                     src={previewImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=random&color=fff&bold=true`}
                                     alt={user?.name}
                                     className={`h-32 w-32 rounded-full border-4 ${isEditMode ? 'border-indigo-400' : 'border-slate-50 dark:border-slate-800'} mb-4 shadow-md object-cover transition-all`}
-                                    onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=random&color=fff&bold=true`;
-                                    }}
                                 />
                                 {isEditMode && (
                                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
