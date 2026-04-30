@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from app.schemas.schemas import AttendanceResponse, CheckInRequest
 from app.services import attendance_service
@@ -6,12 +7,39 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/attendance")
+router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
-@router.get("/", response_model=List[AttendanceResponse])
-async def get_attendance_logs(project_id: Optional[str] = None, skip: int = 0, limit: int = 100):
+@router.get("/test")
+async def test_attendance():
+    return {"status": "attendance router is working"}
+
+@router.get("/")
+@router.get("")
+async def get_attendance_logs(project_id: Optional[str] = Query(None), skip: int = 0, limit: int = 100):
     """Retrieve all logs using the async MongoDB service."""
     return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=project_id)
+
+@router.get("/admin/export")
+@router.get("/admin/export/")
+async def export_attendance():
+    """Generates and streams an Excel attendance report."""
+    logger.info("📊 [ATTENDANCE] Exporting attendance data to Excel...")
+    try:
+        output = await attendance_service.export_attendance_to_excel()
+        
+        headers = {
+            'Content-Disposition': 'attachment; filename="attendance_report.xlsx"',
+            'Cache-Control': 'no-cache'
+        }
+        
+        return StreamingResponse(
+            output, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers=headers
+        )
+    except Exception as e:
+        logger.error(f"🔥 [EXPORT ROUTE ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/check-in")
 async def employee_check_in(request: Request):

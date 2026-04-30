@@ -22,7 +22,13 @@ async def sync_indexes():
             ("employee_id", pymongo.ASCENDING),
             ("date", pymongo.DESCENDING)
         ])
-        # Single index for general sorting
+        # Compound index for general sorting (date then created_at)
+        await db.attendance.create_index([
+            ("date", pymongo.DESCENDING),
+            ("created_at", pymongo.DESCENDING)
+        ])
+        
+        # Single index for general sorting fallback
         await db.attendance.create_index([("created_at", pymongo.DESCENDING)])
 
         # 3. Tasks: Optimized for dashboard filtering and assigned lists

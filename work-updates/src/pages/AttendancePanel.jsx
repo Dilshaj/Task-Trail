@@ -124,7 +124,15 @@ const AttendancePanel = () => {
                         </button>
 
                         <button
-                            onClick={exportAttendanceToExcel}
+                            onClick={async () => {
+                                try {
+                                    await exportAttendanceToExcel();
+                                } catch (error) {
+                                    console.error("Backend XLSX export failed, falling back to local CSV:", error);
+                                    // Fallback to local CSV generation already in this file
+                                    exportToExcel(filteredLogs, `attendance_report_${filterDate || 'all'}.csv`);
+                                }
+                            }}
                             className="flex items-center justify-center gap-2 btn-gradient px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-200/50 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 w-full sm:w-auto"
                         >
                             <Download className="h-4 w-4" />

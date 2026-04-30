@@ -3,6 +3,8 @@ from app.db.mongo import db
 from bson import ObjectId
 import logging
 import json
+import pandas as pd
+import io
 from urllib.request import Request, urlopen
 from fastapi import HTTPException
 
@@ -285,3 +287,45 @@ async def check_out(employee_id: str):
         return format_attendance(updated_log)
     
     return None
+
+async def export_attendance_to_excel():
+    """Generates an Excel file (in-memory) containing all attendance logs."""
+    try:
+        # 1. Fetch all logs using existing logic
+        logs = await get_all_attendance(limit=10000) # Get a large batch
+        
+        if not logs:
+            # Create an empty dataframe with columns if no data
+            df = pd.DataFrame(columns=["Employee ID", "Employee Name", "Date", "Check In", "Check Out", "Location", "Source"])
+        else:
+            # 2. Flatten for Excel
+            data = []
+            for l in logs:
+                data.append({
+                    "Employee ID": l.get("employeeId"),
+                    "Employee Name": l.get("userName"),
+                    "Date": l.get("date"),
+                    "Check In": l.get("checkInTime"),
+                    "Check Out": l.get("checkOutTime"),
+                    "Location": l.get("locationName"),
+                    "Source": l.get("locationSource", "Unknown"),
+                    "Accuracy (m)": l.get("locationAccuracy")
+                })
+            df = pd.DataFrame(data)
+
+        # 3. Create Excel in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Attendance Report')
+            
+            # Auto-adjust columns width (aesthetic touch)
+            worksheet = writer.sheets['Attendance Report']
+            for idx, col in enumerate(df.columns):
+                max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+                worksheet.column_dimensions[chr(65 + idx)].width = min(max_len, 50)
+
+        output.seek(0)
+        return output
+    except Exception as e:
+        logger.error(f"🔥 [EXPORT ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate Excel report")

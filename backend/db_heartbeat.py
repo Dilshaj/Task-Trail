@@ -13,28 +13,28 @@ async def check():
     
     # Standard Collections in your project
     collections = [
-        "employees", 
+        "Employees", 
         "Projects", 
-        "pay_slips", 
-        "tasks", 
-        "attendance",
-        "employee_leaves",
-        "offer_letters"
+        "PaySlips", 
+        "Tasks", 
+        "Attendance",
+        "Leaves",
+        "Offers"
     ]
     
-    print(f"\n🌐 CONNECTED TO: {db_name} (MongoDB Atlas)")
+    print(f"\nCONNECTED TO: {db_name} (MongoDB Atlas)")
     print("=" * 40)
     
     for coll in collections:
         try:
             count = await db[coll].count_documents({})
-            status = "✅ ONLINE" if count >= 0 else "❌ ERROR"
+            status = "ONLINE" if count >= 0 else "ERROR"
             print(f"{status} | {coll.ljust(15)}: {count} documents")
         except Exception as e:
-            print(f"❌ ERROR | {coll.ljust(15)}: {str(e)}")
+            print(f"ERROR | {coll.ljust(15)}: {str(e)}")
 
     print("=" * 40)
-    print("🏁 AUDIT COMPLETE: Data is persistently stored in Atlas.")
+    print("AUDIT COMPLETE: Data is persistently stored in Atlas.")
     client.close()
 
 if __name__ == "__main__":

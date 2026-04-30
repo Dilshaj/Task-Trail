@@ -352,7 +352,7 @@ export const AttendanceProvider = ({ children }) => {
         // Interval sync for near-live location visibility in admin dashboard
         const interval = setInterval(() => {
             fetchLogs(true);
-        }, 5000);
+        }, 30000); // 🚀 Reduced polling frequency (30s) to prevent server overload
 
         // Immediate sync on tab focus (Throttled to once every 5s)
         const handleFocus = () => {

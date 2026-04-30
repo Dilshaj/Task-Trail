@@ -2,12 +2,23 @@ import api from './api';
 const API_URL = 'attendance';
 
 // 🛠️ Universal Error Translator (Atomic-Hardened)
-const extractError = (error) => {
-    // 1. Direct Detail (FastAPI Standard)
-    const detail = error.response?.data?.detail;
+const extractError = async (error) => {
+    // 1. If it's a blob error, we need to read it as text first
+    let data = error.response?.data;
+    if (data instanceof Blob && data.type === 'application/json') {
+        try {
+            const text = await data.text();
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("Failed to parse blob error as JSON", e);
+        }
+    }
 
-    // 2. Fallback to whole response data if detail is missing
-    const rawData = error.response?.data;
+    // 2. Direct Detail (FastAPI Standard)
+    const detail = data?.detail || error.response?.data?.detail;
+
+    // 3. Fallback to whole response data if detail is missing
+    const rawData = data || error.response?.data;
 
     let result = "";
 
@@ -65,7 +76,7 @@ export const checkIn = async (payload) => {
         const response = await api.post(`${API_URL}/check-in`, payload);
         return response.data;
     } catch (error) {
-        throw new Error(extractError(error));
+        throw new Error(await extractError(error));
     }
 };
 
@@ -76,7 +87,7 @@ export const checkOut = async (userId, employeeId) => {
         });
         return response.data;
     } catch (error) {
-        throw new Error(extractError(error));
+        throw new Error(await extractError(error));
     }
 };
 
@@ -96,6 +107,6 @@ export const exportAttendanceToExcel = async () => {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Export failed:', error);
-        throw new Error(extractError(error));
+        throw new Error(await extractError(error));
     }
 };
