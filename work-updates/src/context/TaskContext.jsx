@@ -19,7 +19,7 @@ export const TaskProvider = ({ children }) => {
         }, 5000);
 
         Promise.all([
-            getTasks(),
+            getTasks(selectedProjectId),
             getEmployees(selectedProjectId),
             getEmployees(null) // 🌐 Fetch everyone for the Team Panel
         ])
@@ -42,7 +42,7 @@ export const TaskProvider = ({ children }) => {
     }, [fetchAll]);
 
     const fetchTasks = useCallback(async () => {
-        const data = await getTasks();
+        const data = await getTasks(selectedProjectId);
         setTasks(data);
     }, []);
 

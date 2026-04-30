@@ -18,13 +18,13 @@ class MongoDB:
             return
         self.client = AsyncIOMotorClient(self.uri)
         self.db = self.client[self.db_name]
-        print(f"✅ Company MongoDB connected: {self.db_name}")
+        print(f"[OK] Company MongoDB connected: {self.db_name}")
 
     def close(self):
         """Closes the MongoDB connection."""
         if self.client:
             self.client.close()
-            print("❌ Company MongoDB connection closed")
+            print("[OFF] Company MongoDB connection closed")
 
     # Property helpers - Mapping to your specific collection names
     @property

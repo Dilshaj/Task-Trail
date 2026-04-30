@@ -7,7 +7,7 @@ import { useProjectFilter } from '../context/ProjectFilterContext';
 import { Users, Search, Plus, Filter, X } from 'lucide-react';
 
 const EmployeesPanel = () => {
-    const { allEmployees: employees, addEmployee, loading } = useTasks();
+    const { employees, addEmployee, loading } = useTasks();
     const { selectedProjectId, selectedProject } = useProjectFilter();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);

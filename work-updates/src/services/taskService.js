@@ -1,9 +1,11 @@
 import api from './api';
 
 // ─── Tasks ───────────────────────────────────────────────
-export const getTasks = async () => {
+export const getTasks = async (projectId = null) => {
     try {
-        const res = await api.get(`tasks`);
+        const params = {};
+        if (projectId) params.project_id = projectId;
+        const res = await api.get(`tasks`, { params });
         return res.data;
     } catch { return []; }
 };

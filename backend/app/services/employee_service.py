@@ -109,8 +109,9 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None)
     """Retrieve employees with PERSISTED progress (allows manual slider sync)."""
     try:
         query = {}
-        if project_id:
-            query["project_id"] = project_id
+        # Ensure project_id is a valid, non-null string before filtering
+        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+            query["project_id"] = str(project_id)
         
         cursor = db.employees.find(query).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)

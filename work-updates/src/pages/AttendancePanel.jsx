@@ -6,8 +6,11 @@ import { Calendar, Clock, User, LogIn, LogOut, Search, X, Download, FileSpreadsh
 import { formatDate, calculateActiveHours } from '../utils/helpers';
 import { exportAttendanceToExcel } from '../services/attendanceService';
 
+import { useProjectFilter } from '../context/ProjectFilterContext';
+
 const AttendancePanel = () => {
     const { logs, fetchLogs } = useAttendance();
+    const { selectedProjectId } = useProjectFilter();
     const navigate = useNavigate();
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -53,7 +56,10 @@ const AttendancePanel = () => {
         const normFilterDate = normalizeDate(filterDate);
         const matchDate = filterDate ? normLogDate === normFilterDate : true;
 
-        return matchName && matchDate;
+        // 🛡️ PROJECT ISOLATION: Only show logs for the selected project
+        const matchProject = selectedProjectId ? (String(log.projectId) === String(selectedProjectId)) : true;
+
+        return matchName && matchDate && matchProject;
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // 🚨 EMERGENCY DEBUG

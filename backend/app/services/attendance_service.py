@@ -108,22 +108,14 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
     try:
         query = {}
         
-        if project_id and project_id != 'null':
-            # Resilient Lookup: Find all employees in this project + all Admins
-            pids = [project_id]
+        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+            # Direct Project Isolation: Only show logs belonging to this project
+            pids = [str(project_id)]
             try: pids.append(ObjectId(project_id))
             except: pass
             
-            target_users = await db.employees.find({
-                "$or": [
-                    {"project_id": {"$in": pids}},
-                    {"role": {"$in": ["admin", "Super Admin", "Management"]}}
-                ]
-            }).to_list(1000)
-            
-            emp_ids = [u["employee_id"] for u in target_users]
-            query["employee_id"] = {"$in": emp_ids}
-            logger.info(f"[ATTENDANCE] project_id={project_id} -> Filtered to {len(emp_ids)} users")
+            query["project_id"] = {"$in": pids}
+            logger.info(f"[ATTENDANCE] Filtering logs strictly for project_id: {project_id}")
 
         # 1. Fetch logs
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)

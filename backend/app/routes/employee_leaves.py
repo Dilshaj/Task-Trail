@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import List
+from fastapi import APIRouter, HTTPException, status, Query
+from typing import List, Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 
@@ -56,13 +56,17 @@ async def get_user_leaves(employee_id: str):
     return [await format_leave(l) for l in leaves]
 
 @router.get("/all-leaves", response_model=List[LeaveRequestResponse])
-async def get_all_leaves(project_id: str = None):
+async def get_all_leaves(project_id: Optional[str] = Query(None)):
     """Admin endpoint to see all submitted leave requests, optionally filtered by project via employee lookup."""
     query = {}
-    if project_id:
+    if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
         # Get all employees in this project
-        cursor_emp = db.employees.find({"project_id": project_id})
-        project_employees = await cursor_emp.to_list(length=500)
+        pids = [str(project_id)]
+        try: pids.append(ObjectId(project_id))
+        except: pass
+        
+        cursor_emp = db.employees.find({"project_id": {"$in": pids}})
+        project_employees = await cursor_emp.to_list(length=1000)
         emp_ids = [e.get("employee_id") for e in project_employees]
         query["employee_id"] = {"$in": emp_ids}
         

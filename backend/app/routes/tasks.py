@@ -1,15 +1,14 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import List
+from fastapi import APIRouter, HTTPException, status, Query
+from typing import List, Optional
 from app.schemas.schemas import TaskResponse, TaskCreate, TaskStatusUpdate
 from app.services import task_service
 
 router = APIRouter(prefix="/tasks")
 
 @router.get("", response_model=List[TaskResponse])
-async def get_all_tasks():
+async def get_all_tasks(project_id: Optional[str] = Query(None)):
     """Retrieve all tasks from MongoDB."""
-    # Note: Updated service to handle project/employee context if needed
-    return await task_service.get_tasks_by_project(project_id=None) # Default to all or logic in service
+    return await task_service.get_tasks_by_project(project_id=project_id)
 
 @router.get("/employee/{user_id}", response_model=List[TaskResponse])
 async def get_employee_tasks(user_id: str):

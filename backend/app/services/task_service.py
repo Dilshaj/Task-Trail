@@ -148,8 +148,8 @@ async def update_task_progress(task_id: str, new_progress: float):
 
 async def get_tasks_by_project(project_id: str = None):
     query = {}
-    if project_id:
-        query["project_id"] = project_id
+    if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+        query["project_id"] = str(project_id)
     cursor = db.tasks.find(query).sort("created_at", -1)
     raw_tasks = await cursor.to_list(length=500)
     return [format_task(t) for t in raw_tasks]
