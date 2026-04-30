@@ -5,7 +5,7 @@ import { useAttendance } from '../context/AttendanceContext';
 import Layout from '../components/Layout';
 import TaskCard from '../components/TaskCard';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, ListTodo, LogIn, LogOut, FileText, Download, ShieldCheck, CalendarRange, Edit2, Mail } from 'lucide-react';
+import { CheckCircle2, Clock, ListTodo, LogIn, LogOut, FileText, Download, ShieldCheck, CalendarRange, Edit2, Mail, RotateCw } from 'lucide-react';
 import { calculateActiveHours } from '../utils/helpers';
 import { downloadOfferLetter } from '../services/offerLetterService';
 import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipService';
@@ -13,7 +13,7 @@ import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipServi
 const UserDashboard = () => {
     const { user } = useAuth();
     const { employees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
-    const { activeLog, handleCheckIn, handleCheckOut } = useAttendance();
+    const { activeLog, loading, handleCheckIn, handleCheckOut } = useAttendance();
     const navigate = useNavigate();
     const [showSlipHistory, setShowSlipHistory] = useState(false);
     const [showDateSelector, setShowDateSelector] = useState(false);
@@ -143,10 +143,20 @@ const UserDashboard = () => {
                         {!activeLog ? (
                             <button
                                 onClick={handleCheckIn}
-                                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95"
+                                disabled={loading}
+                                className={`flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
-                                <LogIn className="h-4 w-4" />
-                                Check In
+                                {loading ? (
+                                    <>
+                                        <RotateCw className="h-4 w-4 animate-spin" />
+                                        Capturing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogIn className="h-4 w-4" />
+                                        Check In
+                                    </>
+                                )}
                             </button>
                         ) : (
                             <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900/40 p-1 pr-3 rounded-2xl border border-slate-100 dark:border-slate-800">

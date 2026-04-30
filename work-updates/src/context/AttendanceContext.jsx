@@ -59,34 +59,47 @@ export const AttendanceProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
 
     const handleCheckIn = async () => {
-        if (!user) return;
+        if (!user || loading) return;
+        setLoading(true);
+        
         const empId = user.employee_id || user.employeeId;
 
         let latitude = null;
         let longitude = null;
         let locationName = null;
 
-        // 🌐 Try browser geolocation (HTTPS only) — silently fall back on HTTP
+        // 🌐 Try browser geolocation (HTTPS only) — Prioritize this for "LIVE" location
         const getBrowserLocation = () => {
             return new Promise((resolve) => {
-                // Geolocation requires HTTPS; skip silently on plain HTTP
                 const isSecure = window.location.protocol === 'https:' ||
                     window.location.hostname === 'localhost' ||
                     window.location.hostname === '127.0.0.1';
 
                 if (!isSecure || !navigator.geolocation) {
+                    console.warn("📍 Geolocation not available: Not a secure context or not supported");
                     resolve(null);
                     return;
                 }
+
                 navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                    () => resolve(null),  // silently fall back
-                    { timeout: 8000, enableHighAccuracy: false }
+                    (pos) => {
+                        console.log("📍 Live location captured via Browser");
+                        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    },
+                    (err) => {
+                        console.warn("📍 Browser geolocation failed:", err.message);
+                        resolve(null);
+                    },
+                    { 
+                        timeout: 10000, 
+                        enableHighAccuracy: true, // 🚀 Requested for better live accuracy
+                        maximumAge: 0 
+                    }
                 );
             });
         };
 
-        // 📡 IP-based fallback (always works, no HTTPS required)
+        // 📡 IP-based fallback (Used if Browser fails)
         const getIPLocation = async () => {
             try {
                 const controller = new AbortController();
@@ -97,47 +110,64 @@ export const AttendanceProvider = ({ children }) => {
                 if (data && data.latitude) {
                     return { lat: data.latitude, lng: data.longitude, city: data.city, region: data.region };
                 }
-            } catch (_) { /* silent */ }
+            } catch (_) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const res = await fetch('http://ip-api.com/json/', { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    const data = await res.json();
+                    if (data && data.status === 'success') {
+                        return { lat: data.lat, lng: data.lon, city: data.city, region: data.regionName };
+                    }
+                } catch (__) { /* silent */ }
+            }
             return null;
         };
 
-        let coords = await getBrowserLocation();
-        if (!coords) {
-            const ipData = await getIPLocation();
-            if (ipData) {
-                coords = { lat: ipData.lat, lng: ipData.lng };
-                locationName = [ipData.city, ipData.region].filter(Boolean).join(', ');
-            }
-        }
-
-        if (coords) {
-            latitude = coords.lat;
-            longitude = coords.lng;
-            if (!locationName) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 3000);
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-                        { signal: controller.signal, headers: { 'Accept-Language': 'en', 'User-Agent': 'EduProva' } }
-                    );
-                    clearTimeout(timeoutId);
-                    const data = await response.json();
-                    if (data && data.address) {
-                        const addr = data.address;
-                        const main = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.village || '';
-                        const city = addr.city || addr.town || addr.state_district || addr.state || '';
-                        locationName = city && city !== main ? `${city}${main ? ', ' + main : ''}` : main;
-                    }
-                } catch (_) {
-                    locationName = 'Location Captured';
+        try {
+            // 1. Try Browser first (Live Location)
+            let coords = await getBrowserLocation();
+            
+            // 2. Fallback to IP if Browser fails
+            if (!coords) {
+                console.log("📍 Falling back to IP-based location...");
+                const ipData = await getIPLocation();
+                if (ipData) {
+                    coords = { lat: ipData.lat, lng: ipData.lng };
+                    locationName = [ipData.city, ipData.region].filter(Boolean).join(', ');
                 }
             }
-        } else {
-            locationName = 'Remote Check-in';
-        }
 
-        try {
+            // 3. Reverse Geocode for Human-readable address
+            if (coords) {
+                latitude = coords.lat;
+                longitude = coords.lng;
+                if (!locationName) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 4000);
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+                            { signal: controller.signal, headers: { 'Accept-Language': 'en', 'User-Agent': 'EduProva' } }
+                        );
+                        clearTimeout(timeoutId);
+                        const data = await response.json();
+                        if (data && data.address) {
+                            const addr = data.address;
+                            // Build a descriptive location name
+                            const city = addr.city || addr.town || addr.village || addr.suburb || addr.state_district || '';
+                            const state = addr.state || '';
+                            locationName = [city, state].filter(Boolean).join(', ');
+                        }
+                    } catch (_) {
+                        locationName = 'Location Captured';
+                    }
+                }
+            } else {
+                locationName = 'Remote Check-in';
+            }
+
             const payload = {
                 employeeId: empId,
                 location_name: locationName || 'Auto-detected Location'
@@ -170,6 +200,8 @@ export const AttendanceProvider = ({ children }) => {
                 ? 'A connection error occurred. Please try again.'
                 : msg;
             alert(display);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -221,10 +253,11 @@ export const AttendanceProvider = ({ children }) => {
     const value = useMemo(() => ({
         logs,
         activeLog,
+        loading,
         fetchLogs,
         handleCheckIn,
         handleCheckOut
-    }), [logs, activeLog, fetchLogs, handleCheckIn, handleCheckOut]);
+    }), [logs, activeLog, loading, fetchLogs, handleCheckIn, handleCheckOut]);
 
     return (
         <AttendanceContext.Provider value={value}>
