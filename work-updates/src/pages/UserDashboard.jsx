@@ -13,7 +13,7 @@ import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipServi
 const UserDashboard = () => {
     const { user } = useAuth();
     const { employees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
-    const { activeLog, loading, handleCheckIn, handleCheckOut } = useAttendance();
+    const { activeLog, loading, locationStatus, handleCheckIn, handleCheckOut } = useAttendance();
     const navigate = useNavigate();
     const [showSlipHistory, setShowSlipHistory] = useState(false);
     const [showDateSelector, setShowDateSelector] = useState(false);
@@ -157,7 +157,7 @@ const UserDashboard = () => {
                                 {loading ? (
                                     <>
                                         <RotateCw className="h-4 w-4 animate-spin" />
-                                        Capturing...
+                                        {locationStatus || 'Capturing...'}
                                     </>
                                 ) : (
                                     <>

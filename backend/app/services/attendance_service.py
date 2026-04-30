@@ -84,8 +84,22 @@ def _ip_lookup(ip_address: str) -> tuple:
         lng = _safe_float(payload.get("longitude"))
         return lat, lng
     except Exception as exc:
-        logger.warning(f"[ATTENDANCE] IP lookup failed for {ip_address}: {exc}")
-        return None, None
+        logger.warning(f"[ATTENDANCE] Primary IP lookup failed for {ip_address}: {exc}")
+        
+    # Secondary Fallback
+    try:
+        url = f"http://ip-api.com/json/{ip_address}"
+        req = Request(url, headers={"User-Agent": "EduProva/1.0"})
+        with urlopen(req, timeout=6) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if payload.get("status") == "success":
+            lat = _safe_float(payload.get("lat"))
+            lng = _safe_float(payload.get("lon"))
+            return lat, lng
+    except Exception as exc:
+        logger.warning(f"[ATTENDANCE] Secondary IP lookup failed for {ip_address}: {exc}")
+        
+    return None, None
 
 async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None):
     """Fetches all logs from MongoDB with optimized batch user lookup."""

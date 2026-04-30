@@ -25,6 +25,7 @@ export const AttendanceProvider = ({ children }) => {
     const [logs, setLogs] = useState([]);
     const [activeLog, setActiveLog] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [locationStatus, setLocationStatus] = useState(''); // '', 'Searching GPS...', 'Falling back to IP...', 'Success'
 
     const updatingRef = React.useRef(false);
 
@@ -73,23 +74,45 @@ export const AttendanceProvider = ({ children }) => {
         let locationName = null;
         let locationSource = null;
 
-        // 🌐 Try browser geolocation (HTTPS only) — Prioritize this for "LIVE" location
+        // 🌐 Try browser geolocation — Prioritize this for "LIVE" location
         const getBrowserLocation = () => {
             return new Promise((resolve) => {
-                const isSecure = window.location.protocol === 'https:' ||
-                    window.location.hostname === 'localhost' ||
-                    window.location.hostname === '127.0.0.1';
+                // 🔒 Check for Secure Context (HTTPS or localhost)
+                // navigator.geolocation is ONLY available in Secure Contexts
+                const isSecure = window.isSecureContext || 
+                               window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
 
-                if (!isSecure || !navigator.geolocation) {
-                    console.warn("📍 Geolocation not available: insecure context or unsupported browser");
+                if (!navigator.geolocation) {
+                    console.warn("📍 Geolocation API not supported or blocked by browser.");
+                    resolve({ error: 'unsupported' });
+                    return;
+                }
+
+                if (!isSecure) {
+                    const hostname = window.location.hostname;
+                    const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+                    
+                    // If it's a domain (not localhost/IP), try to suggest/redirect to HTTPS
+                    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !isIpAddress) {
+                        const httpsUrl = `https://${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
+                        console.warn(`🔒 Insecure context detected on domain. GPS requires HTTPS. Suggesting: ${httpsUrl}`);
+                        
+                        // Optional: Auto-redirect if you want to force HTTPS
+                        // window.location.replace(httpsUrl);
+                        // resolve({ error: 'redirecting_https' });
+                        // return;
+                    }
+
+                    console.warn("📍 Geolocation not available: insecure context (HTTP). GPS access is restricted to HTTPS.");
                     resolve({ error: 'insecure_or_unsupported' });
                     return;
                 }
 
                 let best = null;
                 const startedAt = Date.now();
-                const maxWaitMs = 20000;
-                const targetAccuracyM = 80;
+                const maxWaitMs = 15000; // Wait up to 15s for a good fix
+                const targetAccuracyM = 100; // Accept anything under 100m for "Exact"
 
                 const stopAndResolve = (payload) => {
                     if (watchId != null) navigator.geolocation.clearWatch(watchId);
@@ -105,23 +128,29 @@ export const AttendanceProvider = ({ children }) => {
                             accuracy: pos.coords.accuracy,
                             source: 'gps'
                         };
+                        
+                        // Keep track of the most accurate position found so far
                         if (!best || candidate.accuracy < best.accuracy) {
                             best = candidate;
                         }
-                        const elapsed = Date.now() - startedAt;
-                        console.log(`📍 GPS fix accuracy=${Math.round(candidate.accuracy)}m elapsed=${elapsed}ms`);
 
-                        // Accept early once high-precision fix is available.
+                        const elapsed = Date.now() - startedAt;
+                        console.log(`📍 GPS Candidate: accuracy=${Math.round(candidate.accuracy)}m elapsed=${elapsed}ms`);
+
+                        // If we have a very accurate fix, stop early
                         if (candidate.accuracy <= targetAccuracyM) {
                             stopAndResolve(candidate);
                         }
                     },
                     (err) => {
-                        console.warn(`❌ GPS Capture Failed: ${err.message} (Code: ${err.code})`);
-                        stopAndResolve({ error: 'gps_failed' });
+                        console.warn(`❌ GPS Capture Error: ${err.message} (Code: ${err.code})`);
+                        // Don't resolve yet if we have a best candidate, wait for timeout
+                        if (!best) {
+                            stopAndResolve({ error: `gps_failed_${err.code}`, message: err.message });
+                        }
                     },
                     {
-                        timeout: 12000,
+                        timeout: 10000,
                         enableHighAccuracy: true,
                         maximumAge: 0
                     }
@@ -129,8 +158,10 @@ export const AttendanceProvider = ({ children }) => {
 
                 const finalTimeout = setTimeout(() => {
                     if (best) {
+                        console.log("📍 GPS Timeout: Using best candidate found so far");
                         stopAndResolve(best);
                     } else {
+                        console.warn("📍 GPS Timeout: No position found");
                         stopAndResolve({ error: 'gps_timeout' });
                     }
                 }, maxWaitMs);
@@ -181,9 +212,13 @@ export const AttendanceProvider = ({ children }) => {
 
         try {
             // 1. Try Browser first (Live Location)
+            setLocationStatus('Searching GPS...');
             let coords = await getBrowserLocation();
+            
             if (coords?.error) {
+                if (coords.error === 'redirecting_https') return;
                 console.warn("⚠️ GPS unavailable, switching to IP fallback:", coords.error);
+                setLocationStatus('GPS Blocked. Falling back to IP...');
                 const ipCoords = await getIPLocation();
                 if (ipCoords) {
                     coords = ipCoords;
@@ -191,7 +226,10 @@ export const AttendanceProvider = ({ children }) => {
                 } else {
                     throw new Error('Unable to capture location from GPS or IP. Please check location and internet permissions.');
                 }
+            } else {
+                setLocationStatus('GPS Fix Found! Resolving address...');
             }
+
             if (coords?.source === 'gps' && coords?.accuracy && coords.accuracy > 150) {
                 console.warn(`⚠️ GPS accuracy is low (${Math.round(coords.accuracy)}m)`);
             }
@@ -235,6 +273,7 @@ export const AttendanceProvider = ({ children }) => {
                 }
             }
 
+            setLocationStatus('Finalizing check-in...');
             const payload = {
                 employeeId: empId,
                 location_name: locationName || 'Auto-detected Location'
@@ -245,23 +284,28 @@ export const AttendanceProvider = ({ children }) => {
             if (coords?.accuracy != null) payload.location_accuracy = Number(coords.accuracy);
 
             const newLog = await checkIn(payload);
+            setLocationStatus('Success!');
 
             // ✅ Backend returns 200 with already_checked_in flag (not a 400 anymore)
             if (newLog.already_checked_in) {
                 // Refresh current active log location details immediately.
                 setLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, ...newLog } : l));
                 setActiveLog(newLog);
+                setTimeout(() => setLocationStatus(''), 2000);
                 return;
             }
 
             setLogs(prev => [newLog, ...prev]);
             setActiveLog(newLog);
+            setTimeout(() => setLocationStatus(''), 2000);
         } catch (error) {
+            setLocationStatus('Error');
             const msg = error.message || '';
 
             // Fallback: handle old-style 'already' errors just in case
             if (msg.toLowerCase().includes('already')) {
                 await fetchLogs(true);
+                setTimeout(() => setLocationStatus(''), 2000);
                 return;
             }
 
@@ -270,6 +314,7 @@ export const AttendanceProvider = ({ children }) => {
                 ? 'A connection error occurred. Please try again.'
                 : msg;
             alert(display);
+            setTimeout(() => setLocationStatus(''), 2000);
         } finally {
             setLoading(false);
         }
@@ -335,10 +380,11 @@ export const AttendanceProvider = ({ children }) => {
         logs,
         activeLog,
         loading,
+        locationStatus,
         fetchLogs,
         handleCheckIn,
         handleCheckOut
-    }), [logs, activeLog, loading, fetchLogs, handleCheckIn, handleCheckOut]);
+    }), [logs, activeLog, loading, locationStatus, fetchLogs, handleCheckIn, handleCheckOut]);
 
     return (
         <AttendanceContext.Provider value={value}>
