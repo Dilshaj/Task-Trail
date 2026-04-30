@@ -28,7 +28,7 @@ def format_attendance(log):
         "employeeId": log.get("employee_id"),
         "userName": log.get("userName"),
         "userId": log.get("userId"),
-        "projectId": log.get("projectId"), # 🚀 Key fix for dashboard visibility
+        "projectId": log.get("projectId"), # Key fix for dashboard visibility
         "date": log.get("date"),
         "checkInTime": check_in,
         "checkIn": check_in,
@@ -109,7 +109,7 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
         query = {}
         
         if project_id and project_id != 'null':
-            # 🛡️ Resilient Lookup: Find all employees in this project + all Admins
+            # Resilient Lookup: Find all employees in this project + all Admins
             pids = [project_id]
             try: pids.append(ObjectId(project_id))
             except: pass
@@ -123,7 +123,7 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             
             emp_ids = [u["employee_id"] for u in target_users]
             query["employee_id"] = {"$in": emp_ids}
-            logger.info(f"📊 [ATTENDANCE] project_id={project_id} -> Filtered to {len(emp_ids)} users")
+            logger.info(f"[ATTENDANCE] project_id={project_id} -> Filtered to {len(emp_ids)} users")
 
         # 1. Fetch logs
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
@@ -132,7 +132,7 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
         if not logs:
             return []
 
-        # 2. 🚀 OPTIMIZATION: Batch Fetch Users to prevent N+1 Timeouts
+        # OPTIMIZATION: Batch Fetch Users to prevent N+1 Timeouts
         unique_emp_ids = list(set([l["employee_id"] for l in logs]))
         users_raw = await db.employees.find({"employee_id": {"$in": unique_emp_ids}}).to_list(len(unique_emp_ids))
         user_map = {u["employee_id"]: u for u in users_raw}
@@ -152,11 +152,11 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             
             formatted_logs.append(format_attendance(log))
         
-        logger.info(f"✅ [ATTENDANCE] Returning {len(formatted_logs)} logs")
+        logger.info(f"[ATTENDANCE] Returning {len(formatted_logs)} logs")
         return formatted_logs
 
     except Exception as e:
-        logger.error(f"🔥 [ATTENDANCE] CRITICAL ERROR: {str(e)}")
+        logger.error(f"[ATTENDANCE] CRITICAL ERROR: {str(e)}")
         # Return empty list instead of crashing with 500 if it's a minor error
         return []
 
@@ -184,31 +184,31 @@ async def check_in(
     accuracy = _safe_float(location_accuracy)
     source = location_source or "gps"
 
-    # 1. 📍 GPS Logic: If coordinates are missing, try IP fallback
+    # 1. GPS Logic: If coordinates are missing, try IP fallback
     if lat is None or lng is None:
-        logger.info(f"📍 [ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
+        logger.info(f"[ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
         ip_addr = _resolve_ip_from_request_meta(request_meta or {})
         lat, lng = _ip_lookup(ip_addr)
         source = "ip"
         accuracy = None # IP accuracy is unknown/broad
         
         if lat is None or lng is None:
-            logger.error(f"❌ [ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
+            logger.error(f"[ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
             raise HTTPException(
                 status_code=400, 
                 detail="Unable to determine location. Please enable GPS or check your internet connection."
             )
 
-    # 2. 🌍 Reverse Geocode to get a human-readable address
+    # 2. Reverse Geocode to get a human-readable address
     resolved_location_name = _reverse_geocode(lat, lng)
     
-    # 3. 📝 Logging
+    # 3. Logging
     logger.info(
-        f"✅ [ATTENDANCE] Check-in source={source} employee={employee_id} "
+        f"[ATTENDANCE] Check-in source={source} employee={employee_id} "
         f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
     )
     
-    # 4. 🗄️ Check for existing active check-in
+    # 4. Check for existing active check-in
     status = await get_active_checkin(employee_id, current_date)
     if status:
         # If already checked in, refresh live location in the existing active row.
@@ -231,7 +231,7 @@ async def check_in(
         user = await db.employees.find_one({"employee_id": employee_id})
         status["userName"] = user.get("name") if user else "Unknown"
         status["userId"] = str(user.get("_id")) if user else None
-        logger.info(f"🔄 [ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
+        logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
         return format_attendance(status), False
 
     user = await db.employees.find_one({"employee_id": employee_id})
@@ -327,5 +327,5 @@ async def export_attendance_to_excel():
         output.seek(0)
         return output
     except Exception as e:
-        logger.error(f"🔥 [EXPORT ERROR] {str(e)}")
+        logger.error(f"[EXPORT ERROR] {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate Excel report")

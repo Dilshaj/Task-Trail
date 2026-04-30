@@ -43,7 +43,7 @@ async def apply_leave(leave_data: LeaveRequestCreate):
     new_leave["status"] = "Pending"
     new_leave["created_at"] = datetime.utcnow()
     
-    # 🎯 FIX: Use the 'leaves' property which points to 'Leaves' collection
+    # FIX: Use the 'leaves' property which points to 'Leaves' collection
     result = await db.leaves.insert_one(new_leave)
     new_leave["_id"] = result.inserted_id
     return await format_leave(new_leave)

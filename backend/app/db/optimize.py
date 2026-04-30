@@ -6,10 +6,10 @@ async def sync_indexes():
     Creates and verifies critical indexes for the application performance.
     """
     if not db.db:
-        print("⚠️ Database not initialized. Skipping index sync.")
+        print("[DB] Database not initialized. Skipping index sync.")
         return
 
-    print("⚡ Synchronizing MongoDB Indexes...")
+    print("[DB] Synchronizing MongoDB Indexes...")
 
     try:
         # 1. Employees: Force unique constraints on IDs and Emails
@@ -36,6 +36,6 @@ async def sync_indexes():
         await db.tasks.create_index([("project_id", pymongo.ASCENDING)])
         await db.tasks.create_index([("status", pymongo.ASCENDING)])
 
-        print("✅ MongoDB Indexes synchronized successfully.")
+        print("[DB] MongoDB Indexes synchronized successfully.")
     except Exception as e:
-        print(f"❌ Index Sync Failed: {str(e)}")
+        print(f"[DB ERROR] Index Sync Failed: {str(e)}")

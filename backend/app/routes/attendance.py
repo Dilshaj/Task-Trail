@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Query
 from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from app.schemas.schemas import AttendanceResponse, CheckInRequest
@@ -23,7 +23,7 @@ async def get_attendance_logs(project_id: Optional[str] = Query(None), skip: int
 @router.get("/admin/export/")
 async def export_attendance():
     """Generates and streams an Excel attendance report."""
-    logger.info("📊 [ATTENDANCE] Exporting attendance data to Excel...")
+    logger.info("[ATTENDANCE] Exporting attendance data to Excel...")
     try:
         output = await attendance_service.export_attendance_to_excel()
         
@@ -38,7 +38,7 @@ async def export_attendance():
             headers=headers
         )
     except Exception as e:
-        logger.error(f"🔥 [EXPORT ROUTE ERROR] {str(e)}")
+        logger.error(f"[EXPORT ROUTE ERROR] {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/check-in")
@@ -47,7 +47,7 @@ async def employee_check_in(request: Request):
     body = await request.json()
     emp_id = body.get('employee_id') or body.get('employeeId')
 
-    logger.info(f"📥 [ATTENDANCE] Check-in request received for: {emp_id}")
+    logger.info(f"[ATTENDANCE] Check-in request received for: {emp_id}")
 
     if not emp_id:
         raise HTTPException(status_code=400, detail="Employee ID is missing in request body")
@@ -74,14 +74,14 @@ async def employee_check_in(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"🔥 CHECK-IN ERROR: {str(e)}")
+        logger.error(f"CHECK-IN ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail="Server error during check-in")
 
 @router.post("/employee/check-out")
 async def employee_check_out(request: dict):
     """Handles an employee check-out with MongoDB."""
     emp_id = request.get('employee_id') or request.get('employeeId')
-    logger.info(f"📤 [ATTENDANCE] Check-out request for: {emp_id}")
+    logger.info(f"[ATTENDANCE] Check-out request for: {emp_id}")
 
     if not emp_id:
         raise HTTPException(status_code=400, detail="Employee ID is required in body")
@@ -96,5 +96,5 @@ async def employee_check_out(request: dict):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"🔥 CHECK-OUT ERROR: {str(e)}")
+        logger.error(f"CHECK-OUT ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail="Server error during check-out")

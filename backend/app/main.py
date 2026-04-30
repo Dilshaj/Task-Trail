@@ -11,7 +11,7 @@ from app.routes import auth, employees, projects, tasks, attendance, dashboard, 
 from app.db.mongo import db
 from app.db.optimize import sync_indexes
 
-# 🔹 Logging
+# --- Logging ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ if os.path.exists(FRONTEND_PATH):
     @app.get("/{full_path:path}")
     async def serve_react_app(full_path: str):
         if any(full_path.startswith(p) for p in ["api", "assets"]):
-             logger.warning(f"⚠️ [404] Route not found: {full_path}")
+             logger.warning(f"[404] Route not found: {full_path}")
              return JSONResponse(status_code=404, content={"detail": f"Route not found: {full_path}"})
         
         file_path = os.path.join(FRONTEND_PATH, full_path)

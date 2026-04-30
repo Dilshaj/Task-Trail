@@ -53,7 +53,7 @@ async def login(request: LoginRequest):
     """
     try:
         identifier = request.email or request.employee_id
-        logger.info(f"📬 LOGIN ATTEMPT: {identifier}")
+        logger.info(f"LOGIN ATTEMPT: {identifier}")
         
         if not identifier:
             raise HTTPException(status_code=400, detail="Missing Email or Employee ID")
@@ -62,7 +62,7 @@ async def login(request: LoginRequest):
         user = await auth_service.authenticate_user(identifier, request.password)
         
         if not user:
-            logger.warning(f"🚫 AUTH FAILED: {identifier}")
+            logger.warning(f"AUTH FAILED: {identifier}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -82,7 +82,7 @@ async def login(request: LoginRequest):
         from app.services.employee_service import format_employee
         fm_user = format_employee(user)
         
-        # ✅ FLATTENED RESPONSE: Matches Login.jsx/App.jsx expectations
+        # FLATTENED RESPONSE: Matches Login.jsx/App.jsx expectations
         return {
             "token": access_token,
             "refreshToken": refresh_token,
@@ -93,7 +93,7 @@ async def login(request: LoginRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"🔥 LOGIN CRASH: {str(e)}")
+        logger.error(f"LOGIN CRASH: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Internal Server Error during Authentication.")
 
