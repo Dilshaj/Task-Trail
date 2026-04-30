@@ -2,6 +2,9 @@ from datetime import datetime, timezone, timedelta
 from app.db.mongo import db
 from bson import ObjectId
 import logging
+import json
+from urllib.request import Request, urlopen
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +37,55 @@ def format_attendance(log):
         "latitude": log.get("latitude"),
         "longitude": log.get("longitude"),
         "locationName": log.get("location_name"),
+        "locationSource": log.get("location_source"),
+        "locationAccuracy": log.get("location_accuracy"),
         "status": "Checked In" if not check_out else "Logged Out"
     }
+
+def _safe_float(value):
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+def _reverse_geocode(latitude: float, longitude: float) -> str:
+    """Converts coordinates into a human-readable address."""
+    try:
+        url = (
+            "https://nominatim.openstreetmap.org/reverse"
+            f"?lat={latitude}&lon={longitude}&format=jsonv2&addressdetails=1"
+        )
+        req = Request(url, headers={"User-Agent": "EduProva/1.0"})
+        with urlopen(req, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return payload.get("display_name") or "Location Captured"
+    except Exception as exc:
+        logger.warning(f"[ATTENDANCE] Reverse geocode failed: {exc}")
+        return "Location Captured"
+
+def _resolve_ip_from_request_meta(request_meta: dict) -> str:
+    forwarded = request_meta.get("x_forwarded_for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request_meta.get("client_ip")
+
+def _ip_lookup(ip_address: str) -> tuple:
+    """Returns (latitude, longitude) from IP. Used only when GPS is unavailable."""
+    if not ip_address:
+        return None, None
+    try:
+        url = f"https://ipapi.co/{ip_address}/json/"
+        req = Request(url, headers={"User-Agent": "EduProva/1.0"})
+        with urlopen(req, timeout=6) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        lat = _safe_float(payload.get("latitude"))
+        lng = _safe_float(payload.get("longitude"))
+        return lat, lng
+    except Exception as exc:
+        logger.warning(f"[ATTENDANCE] IP lookup failed for {ip_address}: {exc}")
+        return None, None
 
 async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None):
     """Fetches all logs from MongoDB with optimized batch user lookup."""
@@ -102,15 +152,70 @@ async def get_active_checkin(employee_id: str, current_date: str):
         "check_out": None
     })
 
-async def check_in(employee_id: str, latitude: float = None, longitude: float = None, location_name: str = None):
-    """Uses insert_one to create a new attendance log."""
+async def check_in(
+    employee_id: str,
+    latitude: float = None,
+    longitude: float = None,
+    location_name: str = None,
+    location_source: str = None,
+    location_accuracy: float = None,
+    request_meta: dict = None
+):
+    """Uses insert_one to create a new attendance log with GPS-first, IP-fallback logic."""
     current_date, current_time = get_current_timestamps()
+    lat = _safe_float(latitude)
+    lng = _safe_float(longitude)
+    accuracy = _safe_float(location_accuracy)
+    source = location_source or "gps"
+
+    # 1. 📍 GPS Logic: If coordinates are missing, try IP fallback
+    if lat is None or lng is None:
+        logger.info(f"📍 [ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
+        ip_addr = _resolve_ip_from_request_meta(request_meta or {})
+        lat, lng = _ip_lookup(ip_addr)
+        source = "ip"
+        accuracy = None # IP accuracy is unknown/broad
+        
+        if lat is None or lng is None:
+            logger.error(f"❌ [ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Unable to determine location. Please enable GPS or check your internet connection."
+            )
+
+    # 2. 🌍 Reverse Geocode to get a human-readable address
+    resolved_location_name = _reverse_geocode(lat, lng)
     
+    # 3. 📝 Logging
+    logger.info(
+        f"✅ [ATTENDANCE] Check-in source={source} employee={employee_id} "
+        f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
+    )
+    
+    # 4. 🗄️ Check for existing active check-in
     status = await get_active_checkin(employee_id, current_date)
     if status:
+        # If already checked in, refresh live location in the existing active row.
+        await db.attendance.update_one(
+            {"_id": status["_id"]},
+            {"$set": {
+                "latitude": lat,
+                "longitude": lng,
+                "location_name": resolved_location_name,
+                "location_source": source,
+                "location_accuracy": accuracy,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        status["latitude"] = lat
+        status["longitude"] = lng
+        status["location_name"] = resolved_location_name
+        status["location_source"] = source
+        status["location_accuracy"] = accuracy
         user = await db.employees.find_one({"employee_id": employee_id})
         status["userName"] = user.get("name") if user else "Unknown"
         status["userId"] = str(user.get("_id")) if user else None
+        logger.info(f"🔄 [ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
         return format_attendance(status), False
 
     user = await db.employees.find_one({"employee_id": employee_id})
@@ -121,9 +226,11 @@ async def check_in(employee_id: str, latitude: float = None, longitude: float = 
         "date": current_date,
         "check_in": current_time,
         "check_out": None,
-        "latitude": latitude,
-        "longitude": longitude,
-        "location_name": location_name,
+        "latitude": lat,
+        "longitude": lng,
+        "location_name": resolved_location_name,
+        "location_source": source,
+        "location_accuracy": accuracy,
         "project_id": project_id,
         "created_at": datetime.utcnow()
     }

@@ -159,11 +159,11 @@ const UserDashboard = () => {
                                 )}
                             </button>
                         ) : (
-                            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900/40 p-1 pr-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/40 p-1 pr-2 rounded-2xl border border-slate-100 dark:border-slate-800">
                                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
                                     <Clock className="h-5 w-5" />
                                 </div>
-                                <div className="flex flex-col pr-4">
+                                <div className="flex flex-col pr-2">
                                     <span className="text-[10px] text-slate-400 font-bold uppercase">Working Since</span>
                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                         {(() => {
@@ -174,6 +174,17 @@ const UserDashboard = () => {
                                         })()}
                                     </span>
                                 </div>
+
+                                {/* 📍 Live Location Update Button */}
+                                <button
+                                    onClick={handleCheckIn}
+                                    disabled={loading}
+                                    className={`flex items-center justify-center p-2.5 rounded-xl transition-all shadow-sm active:scale-95 border ${loading ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50 hover:shadow-md'}`}
+                                    title="Refresh Live Location"
+                                >
+                                    <RotateCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                                </button>
+
                                 <button
                                     onClick={handleCheckOut}
                                     className="bg-rose-500 hover:bg-rose-600 text-white p-2.5 rounded-xl transition-all shadow-md shadow-rose-100 dark:shadow-none active:scale-95"

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAttendance } from '../context/AttendanceContext';
-import { Calendar, Clock, User, LogIn, LogOut, Search, X, Download, FileSpreadsheet, MapPin, RotateCw } from 'lucide-react';
+import { Calendar, Clock, User, LogIn, LogOut, Search, X, Download, FileSpreadsheet, MapPin, RotateCw, ExternalLink } from 'lucide-react';
 import { formatDate, calculateActiveHours } from '../utils/helpers';
 import { exportAttendanceToExcel } from '../services/attendanceService';
 
@@ -219,21 +219,40 @@ const AttendancePanel = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             {log.locationName ? (
-                                                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                                                    <MapPin className="h-3.5 w-3.5 text-blue-500" />
-                                                    <span className="text-xs font-medium truncate max-w-[150px]" title={log.locationName}>
-                                                        {log.locationName}
-                                                    </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                        <MapPin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                                                        <span className="text-xs font-medium truncate max-w-[180px] lg:max-w-[250px]" title={log.locationName}>
+                                                            {log.locationName}
+                                                        </span>
+                                                    </div>
+                                                    {log.latitude && log.longitude && (
+                                                        <a 
+                                                            href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-600 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold ml-5 transition-colors group"
+                                                        >
+                                                            <span>View Exact Live Location</span>
+                                                            <ExternalLink className="h-2.5 w-2.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                                        </a>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <span className="text-slate-400 text-xs italic">Not captured</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${log.status === 'Checked In'
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 w-fit ${log.status === 'Checked In'
                                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
                                                 }`}>
+                                                {log.status === 'Checked In' && (
+                                                    <span className="relative flex h-2 w-2">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                    </span>
+                                                )}
                                                 {log.status}
                                             </span>
                                         </td>
@@ -310,9 +329,21 @@ const AttendancePanel = () => {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {log.locationName ? (
-                                                            <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-xs">
-                                                                <MapPin className="h-3 w-3" />
-                                                                {log.locationName}
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-xs">
+                                                                    <MapPin className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                                                    <span className="truncate max-w-[150px]" title={log.locationName}>{log.locationName}</span>
+                                                                </div>
+                                                                {log.latitude && log.longitude && (
+                                                                    <a 
+                                                                        href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-[9px] text-indigo-500 hover:underline ml-4 font-bold flex items-center gap-0.5"
+                                                                    >
+                                                                        Exact Map <ExternalLink className="h-2 w-2" />
+                                                                    </a>
+                                                                )}
                                                             </div>
                                                         ) : "--"}
                                                     </td>

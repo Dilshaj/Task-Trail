@@ -107,6 +107,10 @@ class AttendanceResponse(BaseModel):
     check_out: Optional[str] = None
     projectId: Optional[str] = None
     locationName: Optional[str] = None
+    locationSource: Optional[str] = None
+    locationAccuracy: Optional[float] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     status: Optional[str] = "Checked In"
 
 class LeaveRequestCreate(BaseModel):

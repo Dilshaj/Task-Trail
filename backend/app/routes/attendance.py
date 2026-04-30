@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from typing import List, Optional
 from app.schemas.schemas import AttendanceResponse, CheckInRequest
 from app.services import attendance_service
@@ -14,9 +14,10 @@ async def get_attendance_logs(project_id: Optional[str] = None, skip: int = 0, l
     return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=project_id)
 
 @router.post("/check-in")
-async def employee_check_in(request: dict):
+async def employee_check_in(request: Request):
     """Handles an employee check-in with MongoDB."""
-    emp_id = request.get('employee_id') or request.get('employeeId')
+    body = await request.json()
+    emp_id = body.get('employee_id') or body.get('employeeId')
 
     logger.info(f"📥 [ATTENDANCE] Check-in request received for: {emp_id}")
 
@@ -26,9 +27,15 @@ async def employee_check_in(request: dict):
     try:
         log, is_new = await attendance_service.check_in(
             employee_id=emp_id,
-            latitude=request.get('latitude'),
-            longitude=request.get('longitude'),
-            location_name=request.get('location_name')
+            latitude=body.get('latitude'),
+            longitude=body.get('longitude'),
+            location_name=body.get('location_name'),
+            location_source=body.get('location_source'),
+            location_accuracy=body.get('location_accuracy'),
+            request_meta={
+                "client_ip": request.client.host if request.client else None,
+                "x_forwarded_for": request.headers.get("x-forwarded-for")
+            }
         )
 
         if not is_new:
