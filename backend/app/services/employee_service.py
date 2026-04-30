@@ -182,8 +182,22 @@ async def update_employee(user_id: str, employee_update):
     return await get_employee_by_id(user_id)
 
 async def delete_employee(user_id: str):
+    """
+    Deletes an employee. 
+    Resilient: Tries to delete by MongoDB _id (ObjectId) OR human-readable employee_id.
+    """
     try:
-        result = await db.employees.delete_one({"_id": ObjectId(user_id)})
+        # 1. Try deleting by MongoDB _id
+        try:
+            result = await db.employees.delete_one({"_id": ObjectId(user_id)})
+            if result.deleted_count > 0:
+                return True
+        except Exception:
+            pass # Not a valid ObjectId or not found by _id
+            
+        # 2. Try deleting by human-readable employee_id
+        result = await db.employees.delete_one({"employee_id": user_id})
         return result.deleted_count > 0
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error deleting employee {user_id}: {e}")
         return False

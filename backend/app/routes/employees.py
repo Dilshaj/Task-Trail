@@ -82,3 +82,11 @@ async def delete_employee(id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Employee not found")
     return None
+
+@router.delete("/admin/delete-employee/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_employee_admin(id: str):
+    """Alias for delete_employee to support specific frontend dashboard path."""
+    success = await employee_service.delete_employee(id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return None
