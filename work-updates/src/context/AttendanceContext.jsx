@@ -93,15 +93,19 @@ export const AttendanceProvider = ({ children }) => {
                     const hostname = window.location.hostname;
                     const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
                     
-                    // If it's a domain (not localhost/IP), try to suggest/redirect to HTTPS
+                    // 🚀 AUTO-FIX: If we are on a domain (not localhost/IP), redirect to HTTPS immediately
+                    // This is required to unlock GPS in modern browsers.
                     if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !isIpAddress) {
                         const httpsUrl = `https://${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
-                        console.warn(`🔒 Insecure context detected on domain. GPS requires HTTPS. Suggesting: ${httpsUrl}`);
+                        console.warn(`🔒 Insecure context. Redirecting to Secure HTTPS for GPS: ${httpsUrl}`);
                         
-                        // Optional: Auto-redirect if you want to force HTTPS
-                        // window.location.replace(httpsUrl);
-                        // resolve({ error: 'redirecting_https' });
-                        // return;
+                        // We give the user 1 second to see the log, then redirect
+                        setTimeout(() => {
+                            window.location.replace(httpsUrl);
+                        }, 1000);
+                        
+                        resolve({ error: 'redirecting_https' });
+                        return;
                     }
 
                     console.warn("📍 Geolocation not available: insecure context (HTTP). GPS access is restricted to HTTPS.");
