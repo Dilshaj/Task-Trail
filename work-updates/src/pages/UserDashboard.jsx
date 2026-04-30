@@ -142,9 +142,17 @@ const UserDashboard = () => {
 
                         {/* 🔒 Security Warning for Geolocation */}
                         {window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && (
-                            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-xl border border-amber-100 dark:border-amber-800 text-[10px] font-bold animate-pulse max-w-[200px]">
-                                <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-                                <span>GPS blocked (Insecure HTTP). Location will be inaccurate. Use HTTPS for exact location.</span>
+                            <div className="flex flex-col gap-2 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800 animate-pulse max-w-[240px]">
+                                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                                    <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                                    <span>GPS blocked (Insecure HTTP). Location will be inaccurate.</span>
+                                </div>
+                                <button 
+                                    onClick={() => window.location.href = `https://${window.location.host}${window.location.pathname}`}
+                                    className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded-lg shadow-sm transition-all"
+                                >
+                                    Switch to Secure HTTPS
+                                </button>
                             </div>
                         )}
 
