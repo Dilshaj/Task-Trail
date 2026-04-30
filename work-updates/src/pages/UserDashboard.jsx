@@ -140,6 +140,14 @@ const UserDashboard = () => {
 
                         <div className="h-px w-full xl:w-px xl:h-10 bg-slate-200 dark:bg-slate-800 flex-shrink-0"></div>
 
+                        {/* 🔒 Security Warning for Geolocation */}
+                        {window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && (
+                            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-xl border border-amber-100 dark:border-amber-800 text-[10px] font-bold animate-pulse max-w-[200px]">
+                                <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                                <span>GPS blocked (Insecure HTTP). Location will be inaccurate. Use HTTPS for exact location.</span>
+                            </div>
+                        )}
+
                         {!activeLog ? (
                             <button
                                 onClick={handleCheckIn}

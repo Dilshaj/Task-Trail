@@ -227,15 +227,24 @@ const AttendancePanel = () => {
                                                         </span>
                                                     </div>
                                                     {log.latitude && log.longitude && (
-                                                        <a 
-                                                            href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer"
-                                                            className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-600 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold ml-5 transition-colors group"
-                                                        >
-                                                            <span>View Exact Live Location</span>
-                                                            <ExternalLink className="h-2.5 w-2.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                                                        </a>
+                                                        <div className="flex flex-col gap-1 mt-1">
+                                                            <a 
+                                                                href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-600 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold ml-5 transition-colors group"
+                                                            >
+                                                                <span>View Exact Live Location</span>
+                                                                <ExternalLink className="h-2.5 w-2.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                                            </a>
+                                                            <span className={`text-[9px] font-bold ml-5 px-1.5 py-0.5 rounded border w-fit ${log.locationSource === 'gps' 
+                                                                ? 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800' 
+                                                                : 'text-amber-600 bg-amber-50 border-amber-100 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800'
+                                                                }`}>
+                                                                Source: {log.locationSource?.toUpperCase() || 'UNKNOWN'} 
+                                                                {log.locationSource === 'ip' && ' (Estimated)'}
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             ) : (
