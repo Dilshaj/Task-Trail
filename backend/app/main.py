@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     try:
         db.connect()
-        logger.info("✅ MongoDB Atlas connection established.")
+        logger.info("[DB] MongoDB Atlas connection established.")
         await sync_indexes()
     except Exception as e:
-        logger.error(f"❌ STARTUP ERROR: {e}")
+        logger.error(f"[STARTUP ERROR] {e}")
     yield
     db.close()
-    logger.info("💤 Shutting down...")
+    logger.info("[SHUTDOWN] Closing connections...")
 
 app = FastAPI(
     title="EduProva API",

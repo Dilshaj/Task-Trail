@@ -26,9 +26,12 @@ export const AttendanceProvider = ({ children }) => {
     const [activeLog, setActiveLog] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const fetchLogs = useCallback(async (isBackground = false) => {
-        if (!user || isUpdating) return;
+    const updatingRef = React.useRef(false);
 
+    const fetchLogs = useCallback(async (isBackground = false) => {
+        if (!user || updatingRef.current) return;
+
+        updatingRef.current = true;
         setIsUpdating(true);
         try {
             const isAdmin = user?.role === 'admin';
@@ -48,9 +51,10 @@ export const AttendanceProvider = ({ children }) => {
         } catch (error) {
             console.error("❌ Failed to fetch attendance logs:", error);
         } finally {
+            updatingRef.current = false;
             setIsUpdating(false);
         }
-    }, [user, selectedProjectId, isUpdating]);
+    }, [user, selectedProjectId]); // Removed isUpdating from deps to prevent re-creation loop
 
     useEffect(() => {
         fetchLogs();
@@ -76,7 +80,7 @@ export const AttendanceProvider = ({ children }) => {
                     window.location.hostname === '127.0.0.1';
 
                 if (!isSecure || !navigator.geolocation) {
-                    console.warn("📍 Geolocation not available: Not a secure context or not supported");
+                    console.debug("📍 Geolocation not available in this context");
                     resolve(null);
                     return;
                 }
@@ -87,12 +91,12 @@ export const AttendanceProvider = ({ children }) => {
                         resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                     },
                     (err) => {
-                        console.warn("📍 Browser geolocation failed:", err.message);
+                        console.debug("📍 Browser geolocation failed:", err.message);
                         resolve(null);
                     },
                     { 
-                        timeout: 10000, 
-                        enableHighAccuracy: true, // 🚀 Requested for better live accuracy
+                        timeout: 8000, 
+                        enableHighAccuracy: true, 
                         maximumAge: 0 
                     }
                 );
@@ -224,29 +228,40 @@ export const AttendanceProvider = ({ children }) => {
         }
     };
 
-    // 🚀 High-frequency sync for Admin Panel
+    // 🚀 High-frequency sync for Admin Panel (Optimized)
+    const lastSyncRef = React.useRef(0);
+
     useEffect(() => {
         if (!user) return;
 
-        // Fast interval (10s)
+        // Interval sync (15s instead of 10s to reduce load)
         const interval = setInterval(() => {
             fetchLogs(true);
-        }, 10000);
+        }, 15000);
 
-        // Immediate sync on tab focus or window focus
+        // Immediate sync on tab focus (Throttled to once every 5s)
         const handleFocus = () => {
+            const now = Date.now();
+            if (now - lastSyncRef.current < 5000) return; 
+            lastSyncRef.current = now;
+            
             console.log("🔦 Tab focused - triggering immediate sync");
             fetchLogs(true);
         };
 
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                handleFocus();
+            }
+        };
+
         window.addEventListener('focus', handleFocus);
-        const onVisible = () => { if (document.visibilityState === 'visible') handleFocus(); };
-        document.addEventListener('visibilitychange', onVisible);
+        document.addEventListener('visibilitychange', onVisibilityChange);
 
         return () => {
             clearInterval(interval);
             window.removeEventListener('focus', handleFocus);
-            document.removeEventListener('visibilitychange', onVisible);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [user, fetchLogs]);
 
