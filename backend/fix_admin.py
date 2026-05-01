@@ -20,7 +20,22 @@ async def fix_admin():
     # Matching your collection name
     employees_collection = db["Employees"]
 
-    # 1. Ensure Admin exists with 'password_hash' and role 'admin'
+    # 1. Ensure CEO Admin exists
+    ceo_email = "dilshajceo@dilshajinfotech.tech"
+    await employees_collection.update_one(
+        {"email": ceo_email},
+        {"$set": {
+            "employee_id": "CEO-001",
+            "name": "Dilshaj CEO",
+            "password_hash": pwd_context.hash("admin@123"),
+            "role": "admin",
+            "is_first_login": False
+        }},
+        upsert=True
+    )
+    print(f"CEO Admin {ceo_email} ensured.")
+
+    # 2. Ensure Generic Admin exists
     admin_email = "admin@eduprova.com"
     await employees_collection.update_one(
         {"email": admin_email},
@@ -33,6 +48,7 @@ async def fix_admin():
         }},
         upsert=True
     )
+    print(f"Generic Admin {admin_email} ensured.")
 
     # 2. Update Test User
     await employees_collection.update_one(
