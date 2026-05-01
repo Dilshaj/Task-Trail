@@ -1,6 +1,9 @@
 from app.db.mongo import db
 from datetime import datetime
 from bson import ObjectId
+import logging
+
+logger = logging.getLogger(__name__)
 
 def format_task(task):
     if not task:
@@ -16,8 +19,8 @@ def format_task(task):
         "timeline": task.get("timeline"),
         "assignedTo": task.get("assigned_to"),
         "assigned_to": task.get("assigned_to"),
-        "projectId": task.get("project_id"),
-        "project_id": task.get("project_id"),
+        "projectId": str(task.get("project_id")) if task.get("project_id") else None,
+        "project_id": str(task.get("project_id")) if task.get("project_id") else None,
         "progress": task.get("progress", 0.0),
         "createdAt": task.get("created_at"),
         "created_at": task.get("created_at")
@@ -27,83 +30,100 @@ async def recalculate_employee_progress(employee_id: str):
     """
     Calculates progress percentages based on the average of task progress percentages.
     """
-    if not employee_id:
+    if not employee_id or not db.db:
         return
 
-    # Fetch all tasks for this employee
-    cursor = db.tasks.find({"assigned_to": employee_id})
-    all_tasks = await cursor.to_list(length=1000)
-    
-    if not all_tasks:
-        # Reset to 0 if no tasks
+    try:
+        # Fetch all tasks for this employee
+        cursor = db.tasks.find({"assigned_to": employee_id})
+        all_tasks = await cursor.to_list(length=1000)
+        
+        if not all_tasks:
+            # Reset to 0 if no tasks
+            await db.employees.update_one(
+                {"_id": ObjectId(employee_id)},
+                {"$set": {"work_progress_perc": 0.0, "overall_progress_perc": 0.0}}
+            )
+            return
+
+        # Filter by timeline
+        daily_tasks = [t for t in all_tasks if str(t.get("timeline")).strip().lower() == "daily"]
+        weekly_tasks = [t for t in all_tasks if str(t.get("timeline")).strip().lower() == "weekly"]
+
+        def calc_perc(tasks):
+            if not tasks: return 0.0
+            # Calculate average progress (treat "Completed" status as 100%)
+            total_progress = 0.0
+            for t in tasks:
+                prog = float(t.get("progress", 0.0))
+                if t.get("status") == "Completed":
+                    prog = 100.0
+                total_progress += prog
+            
+            return round(total_progress / len(tasks), 1)
+
+        daily_perc = calc_perc(daily_tasks)
+        weekly_perc = calc_perc(weekly_tasks)
+
+        # Update employee document
         await db.employees.update_one(
             {"_id": ObjectId(employee_id)},
-            {"$set": {"work_progress_perc": 0.0, "overall_progress_perc": 0.0}}
+            {"$set": {
+                "work_progress_perc": daily_perc,
+                "overall_progress_perc": weekly_perc,
+                "updated_at": datetime.utcnow()
+            }}
         )
-        return
-
-    # Filter by timeline
-    daily_tasks = [t for t in all_tasks if str(t.get("timeline")).strip().lower() == "daily"]
-    weekly_tasks = [t for t in all_tasks if str(t.get("timeline")).strip().lower() == "weekly"]
-
-    def calc_perc(tasks):
-        if not tasks: return 0.0
-        # Calculate average progress (treat "Completed" status as 100%)
-        total_progress = 0.0
-        for t in tasks:
-            prog = float(t.get("progress", 0.0))
-            if t.get("status") == "Completed":
-                prog = 100.0
-            total_progress += prog
-        
-        return round(total_progress / len(tasks), 1)
-
-    daily_perc = calc_perc(daily_tasks)
-    weekly_perc = calc_perc(weekly_tasks)
-
-    # Update employee document
-    await db.employees.update_one(
-        {"_id": ObjectId(employee_id)},
-        {"$set": {
-            "work_progress_perc": daily_perc,
-            "overall_progress_perc": weekly_perc,
-            "updated_at": datetime.utcnow()
-        }}
-    )
-    print(f"📊 AUTO-SYNC: Employee {employee_id} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
+        print(f"📊 AUTO-SYNC: Employee {employee_id} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
+    except Exception as e:
+        logger.error(f"Error recalculating progress: {e}")
 
 async def create_task(task_data: dict):
     """Inserts a new task and triggers progress sync."""
-    db_data = {
-        "title": task_data.get("title"),
-        "description": task_data.get("description"),
-        "deadline": task_data.get("deadline"),
-        "priority": task_data.get("priority", "Medium"),
-        "timeline": task_data.get("timeline", "daily"),
-        "status": task_data.get("status", "Pending"),
-        "assigned_to": task_data.get("assignedTo") or task_data.get("assigned_to"),
-        "project_id": task_data.get("projectId") or task_data.get("project_id"),
-        "progress": task_data.get("progress", 0.0),
-        "created_at": datetime.utcnow()
-    }
-    
-    result = await db.tasks.insert_one(db_data)
-    task_id = result.inserted_id
-    
-    # 🔥 Trigger Auto-Sync
-    if db_data["assigned_to"]:
-        await recalculate_employee_progress(db_data["assigned_to"])
+    if db.db is None:
+        return None
+    try:
+        db_data = {
+            "title": task_data.get("title"),
+            "description": task_data.get("description"),
+            "deadline": task_data.get("deadline"),
+            "priority": task_data.get("priority", "Medium"),
+            "timeline": task_data.get("timeline", "daily"),
+            "status": task_data.get("status", "Pending"),
+            "assigned_to": task_data.get("assignedTo") or task_data.get("assigned_to"),
+            "project_id": task_data.get("projectId") or task_data.get("project_id"),
+            "progress": task_data.get("progress", 0.0),
+            "created_at": datetime.utcnow()
+        }
         
-    db_data["_id"] = task_id
-    return format_task(db_data)
+        result = await db.tasks.insert_one(db_data)
+        task_id = result.inserted_id
+        
+        # 🔥 Trigger Auto-Sync
+        if db_data["assigned_to"]:
+            await recalculate_employee_progress(db_data["assigned_to"])
+            
+        db_data["_id"] = task_id
+        return format_task(db_data)
+    except Exception as e:
+        logger.error(f"Error creating task: {e}")
+        return None
 
 async def get_tasks_by_employee(employee_id: str):
-    cursor = db.tasks.find({"assigned_to": employee_id}).sort("created_at", -1)
-    raw_tasks = await cursor.to_list(length=100)
-    return [format_task(t) for t in raw_tasks]
+    if db.db is None:
+        return []
+    try:
+        cursor = db.tasks.find({"assigned_to": employee_id}).sort("created_at", -1)
+        raw_tasks = await cursor.to_list(length=100)
+        return [format_task(t) for t in raw_tasks]
+    except Exception as e:
+        logger.error(f"Error getting tasks by employee: {e}")
+        return []
 
 async def update_task_status(task_id: str, new_status: str):
     """Updates task status and triggers progress sync."""
+    if db.db is None:
+        return None
     try:
         # Find the task first to know who it's assigned to
         task = await db.tasks.find_one({"_id": ObjectId(task_id)})
@@ -121,11 +141,14 @@ async def update_task_status(task_id: str, new_status: str):
             await recalculate_employee_progress(task.get("assigned_to"))
             
         return format_task(updated_task)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error updating task status: {e}")
         return None
 
 async def update_task_progress(task_id: str, new_progress: float):
     """Updates the progress percentage of a specific task and triggers sync."""
+    if db.db is None:
+        return None
     try:
         # Find the task first to know who it's assigned to
         task = await db.tasks.find_one({"_id": ObjectId(task_id)})
@@ -143,28 +166,52 @@ async def update_task_progress(task_id: str, new_progress: float):
             await recalculate_employee_progress(task.get("assigned_to"))
 
         return format_task(updated_task)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error updating task progress: {e}")
         return None
 
 async def get_tasks_by_project(project_id: str = None):
-    query = {}
-    if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
-        query["project_id"] = str(project_id)
-    cursor = db.tasks.find(query).sort("created_at", -1)
-    raw_tasks = await cursor.to_list(length=500)
-    return [format_task(t) for t in raw_tasks]
+    """Retrieve tasks with strict project-wise isolation."""
+    if db.db is None:
+        return []
+    try:
+        query = {}
+        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+            # Robust Isolation: Match both string and ObjectId formats
+            pids = [str(project_id)]
+            try:
+                pids.append(ObjectId(project_id))
+            except:
+                pass
+            query["project_id"] = {"$in": pids}
+        else:
+            # Strictly return unassigned tasks only if no project_id is provided
+            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
+            
+        cursor = db.tasks.find(query).sort("created_at", -1)
+        raw_tasks = await cursor.to_list(length=500)
+        return [format_task(t) for t in raw_tasks]
+    except Exception as e:
+        logger.error(f"🔥 GET TASKS ERROR: {str(e)}")
+        return []
 
 async def delete_task(task_id: str):
     """Deletes task and triggers progress sync."""
-    # Find task before deletion
-    task = await db.tasks.find_one({"_id": ObjectId(task_id)})
-    if not task:
+    if db.db is None:
         return False
+    try:
+        # Find task before deletion
+        task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+        if not task:
+            return False
+            
+        result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
         
-    result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
-    
-    # 🔥 Trigger Auto-Sync
-    if task.get("assigned_to"):
-        await recalculate_employee_progress(task.get("assigned_to"))
-        
-    return result.deleted_count > 0
+        # 🔥 Trigger Auto-Sync
+        if task.get("assigned_to"):
+            await recalculate_employee_progress(task.get("assigned_to"))
+            
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error deleting task: {e}")
+        return False

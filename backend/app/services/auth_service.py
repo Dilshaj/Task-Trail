@@ -44,6 +44,9 @@ async def authenticate_user(identifier: str, password: str):
     """
     🚀 Authenticates user via MongoDB Atlas with Robust Field Matching.
     """
+    if db.db is None:
+        logger.warning(f"❌ AUTH TRACE: Database not connected for login attempt [{identifier}]")
+        return None
     try:
         clean_id = identifier.strip()
         logger.info(f"🕵️ AUTH TRACE: Login attempt for [{clean_id}]")

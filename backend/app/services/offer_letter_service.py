@@ -32,8 +32,8 @@ class OfferLetterService:
             "joining_date": offer.get("joining_date"),
             "location": offer.get("location"),
             "package": offer.get("package"),
-            "projectId": offer.get("project_id"),
-            "project_id": offer.get("project_id"),
+            "projectId": str(offer.get("project_id")) if offer.get("project_id") else None,
+            "project_id": str(offer.get("project_id")) if offer.get("project_id") else None,
             "createdAt": offer.get("updated_at"),
             "created_at": offer.get("updated_at"),
             "updated_at": offer.get("updated_at")
@@ -71,10 +71,17 @@ class OfferLetterService:
 
     @staticmethod
     async def get_all_offer_letters(skip: int = 0, limit: int = 100, project_id: str = None):
-        """Returns all offer letters with optional filtering."""
+        """Returns all offer letters with strict project isolation."""
         query = {}
-        if project_id:
-            query["project_id"] = project_id
+        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+            # Robust Isolation: Match both string and ObjectId formats
+            pids = [str(project_id)]
+            try: pids.append(ObjectId(project_id))
+            except: pass
+            query["project_id"] = {"$in": pids}
+        else:
+            # Enforce isolation: return unassigned offer letters only if no project_id
+            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
         
         cursor = db.offers.find(query).sort("updated_at", -1).skip(skip).limit(limit)
         raw_offers = await cursor.to_list(length=limit)

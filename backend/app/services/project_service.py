@@ -30,6 +30,8 @@ def format_project(project):
     return formatted
 
 async def get_projects(skip: int = 0, limit: int = 100):
+    if db.db is None:
+        return []
     try:
         cursor = db.projects.find({}).sort("created_at", -1).skip(skip).limit(limit)
         raw_projects = await cursor.to_list(length=100)
@@ -39,6 +41,8 @@ async def get_projects(skip: int = 0, limit: int = 100):
         return []
 
 async def create_project(project: ProjectCreate):
+    if db.db is None:
+        return None
     try:
         project_data = {
             "name": project.name,
@@ -52,9 +56,11 @@ async def create_project(project: ProjectCreate):
         return format_project(saved_project)
     except Exception as e:
         logger.error(f"🔥 CREATE PROJECT ERROR: {str(e)}")
-        raise e
+        return None
 
 async def update_project(project_id: str, project_update: ProjectUpdate):
+    if db.db is None:
+        return None
     try:
         update_data = {"updated_at": datetime.utcnow()}
         if project_update.name:
@@ -71,11 +77,14 @@ async def update_project(project_id: str, project_update: ProjectUpdate):
         return format_project(result)
     except Exception as e:
         logger.error(f"🔥 UPDATE PROJECT ERROR: {str(e)}")
-        raise e
+        return None
 
 async def delete_project(project_id: str):
+    if db.db is None:
+        return False
     try:
         result = await db.projects.delete_one({"_id": ObjectId(project_id)})
         return result.deleted_count > 0
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}")
         return False

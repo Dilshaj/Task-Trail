@@ -89,8 +89,8 @@ def format_employee(emp):
         "role": emp.get("role"),
         "email": emp.get("email"),
         "avatar": final_avatar,
-        "projectId": emp.get("project_id"),
-        "project_id": emp.get("project_id"),
+        "projectId": str(emp.get("project_id")) if emp.get("project_id") else None,
+        "project_id": str(emp.get("project_id")) if emp.get("project_id") else None,
         
         # Mapped to all possible frontend field names for reliability
         "workProgress": work_prog,
@@ -106,12 +106,28 @@ def format_employee(emp):
     }
 
 async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None):
-    """Retrieve employees with PERSISTED progress (allows manual slider sync)."""
+    """Retrieve employees with strict project-wise isolation."""
+    if db.db is None:
+        return []
     try:
         query = {}
         # Ensure project_id is a valid, non-null string before filtering
         if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
-            query["project_id"] = str(project_id)
+            # Robust Isolation: Match both string and ObjectId formats
+            p_ids = [str(project_id)]
+            try:
+                p_ids.append(ObjectId(project_id))
+            except:
+                pass
+            query["project_id"] = {"$in": p_ids}
+            logger.info(f"[ISOLATION] Filtering employees for project_id: {project_id}")
+        else:
+            # If no project_id is provided, and we want STRICT isolation, 
+            # we should either return NOTHING or only employees with NO project.
+            # The requirement suggests filtering by selected_project_id is mandatory.
+            # We'll filter for employees with NO project_id to avoid "all-projects" leakage.
+            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
+            logger.info("[ISOLATION] No project_id provided. Returning unassigned employees only.")
         
         cursor = db.employees.find(query).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)
@@ -121,72 +137,114 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None)
         return []
 
 async def get_employee_by_id(user_id: str):
+    if db.db is None:
+        return None
     try:
         emp = await db.employees.find_one({"_id": ObjectId(user_id)})
         return format_employee(emp)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error getting employee by id: {e}")
         return None
 
 async def get_employee_by_employee_id(emp_id: str):
+    if db.db is None:
+        return None
     try:
         emp = await db.employees.find_one({"employee_id": emp_id})
         return format_employee(emp)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error getting employee by employee id: {e}")
         return None
 
 async def search_employee(employee_id: str = None, name: str = None):
-    query = {}
-    if employee_id:
-        query["employee_id"] = employee_id
-    elif name:
-        query["name"] = {"$regex": name, "$options": "i"}
-    
-    emp = await db.employees.find_one(query)
-    return format_employee(emp)
+    """Search for an employee by ID or name."""
+    if db.db is None:
+        return None
+    try:
+        query = {}
+        if employee_id:
+            query["employee_id"] = employee_id
+        elif name:
+            query["name"] = {"$regex": name, "$options": "i"}
+        
+        emp = await db.employees.find_one(query)
+        return format_employee(emp) if emp else None
+    except Exception as e:
+        logger.error(f"Error searching employee: {e}")
+        return None
 
 async def create_employee(employee: EmployeeCreate):
-    new_emp_data = employee.model_dump()
-    new_emp_data["password_hash"] = get_password_hash("user")
-    new_emp_data["created_at"] = datetime.utcnow()
-    new_emp_data["role"] = "user"
-    new_emp_data["work_progress_perc"] = 0.0
-    new_emp_data["overall_progress_perc"] = 0.0
-    
-    result = await db.employees.insert_one(new_emp_data)
-    new_emp_data["_id"] = result.inserted_id
-    return format_employee(new_emp_data)
+    if db.db is None:
+        return None
+    try:
+        new_emp_data = employee.model_dump()
+        new_emp_data["password_hash"] = get_password_hash("user")
+        new_emp_data["created_at"] = datetime.utcnow()
+        new_emp_data["role"] = "user"
+        new_emp_data["work_progress_perc"] = 0.0
+        new_emp_data["overall_progress_perc"] = 0.0
+        if "email" not in new_emp_data or not new_emp_data["email"]:
+            new_emp_data["email"] = f"{new_emp_data['employee_id']}@worksheet.local"
+
+        
+        result = await db.employees.insert_one(new_emp_data)
+        new_emp_data["_id"] = result.inserted_id
+        return format_employee(new_emp_data)
+    except Exception as e:
+        logger.error(f"Error creating employee: {e}")
+        return None
 
 async def update_employee_progress(user_id: str, progress: EmployeeProgressUpdate):
     """Persist the manual slider updates to MongoDB."""
-    update_data = {
-        "work_progress_perc": float(progress.work_progress_perc),
-        "overall_progress_perc": float(progress.overall_progress_perc),
-        "updated_at": datetime.utcnow()
-    }
-    
-    await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
-    logger.info(f"✅ PERSISTED Progress for {user_id}: {update_data}")
-    return await get_employee_by_id(user_id)
+    if db.db is None:
+        return None
+    try:
+        update_data = {
+            "work_progress_perc": float(progress.work_progress_perc),
+            "overall_progress_perc": float(progress.overall_progress_perc),
+            "updated_at": datetime.utcnow()
+        }
+        
+        await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
+        logger.info(f"✅ PERSISTED Progress for {user_id}: {update_data}")
+        return await get_employee_by_id(user_id)
+    except Exception as e:
+        logger.error(f"Error updating employee progress: {e}")
+        return None
 
 async def assign_employee_project(user_id: str, project_id: str):
-    await db.employees.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"project_id": project_id, "updated_at": datetime.utcnow()}}
-    )
-    return await get_employee_by_id(user_id)
+    if db.db is None:
+        return None
+    try:
+        await db.employees.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"project_id": project_id, "updated_at": datetime.utcnow()}}
+        )
+        return await get_employee_by_id(user_id)
+    except Exception as e:
+        logger.error(f"Error assigning employee project: {e}")
+        return None
 
 async def update_employee(user_id: str, employee_update):
-    update_data = employee_update.model_dump(exclude_unset=True)
-    update_data["updated_at"] = datetime.utcnow()
-    
-    await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
-    return await get_employee_by_id(user_id)
+    if db.db is None:
+        return None
+    try:
+        update_data = employee_update.model_dump(exclude_unset=True)
+        update_data["updated_at"] = datetime.utcnow()
+        
+        await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
+        return await get_employee_by_id(user_id)
+    except Exception as e:
+        logger.error(f"Error updating employee: {e}")
+        return None
 
 async def delete_employee(user_id: str):
     """
     Deletes an employee. 
     Resilient: Tries to delete by MongoDB _id (ObjectId) OR human-readable employee_id.
     """
+    if db.db is None:
+        return False
     try:
         # 1. Try deleting by MongoDB _id
         try:

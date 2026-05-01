@@ -22,9 +22,20 @@ async def get_employees(
 @router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
 async def create_employee(employee: EmployeeCreate):
     try:
-        return await employee_service.create_employee(employee)
+        created = await employee_service.create_employee(employee)
+        if created is None:
+            raise HTTPException(status_code=400, detail="Failed to create employee. Employee ID may already exist.")
+        return created
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/search", response_model=Optional[EmployeeResponse])
+async def search_employees(
+    employee_id: Optional[str] = Query(None),
+    name: Optional[str] = Query(None)
+):
+    employee = await employee_service.search_employee(employee_id, name)
+    return employee
 
 @router.get("/{id}", response_model=EmployeeResponse)
 async def get_employee(id: str):

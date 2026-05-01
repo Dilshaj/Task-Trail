@@ -5,7 +5,7 @@ async def sync_indexes():
     """
     Creates and verifies critical indexes for the application performance.
     """
-    if not db.db:
+    if db.db is None:
         print("[DB] Database not initialized. Skipping index sync.")
         return
 

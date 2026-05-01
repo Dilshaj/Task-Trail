@@ -77,9 +77,10 @@ export const TaskProvider = ({ children }) => {
     const addNewEmployee = async (employeeData) => {
         const newEmployee = await apiAddEmployee(employeeData);
         setAllEmployees(prev => [...prev, newEmployee]);
-        if (selectedProjectId && newEmployee.project_id === selectedProjectId) {
+        if (!selectedProjectId || newEmployee.project_id === selectedProjectId || newEmployee.projectId === selectedProjectId) {
             setEmployees(prev => [...prev, newEmployee]);
         }
+        await fetchEmployees();
         return newEmployee;
     };
 

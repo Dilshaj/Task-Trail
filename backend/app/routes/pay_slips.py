@@ -60,8 +60,18 @@ async def download_pay_slip_id(id: str):
 
 @router.get("/pay-slips")
 async def get_all_slips(project_id: Optional[str] = None):
+    """Admin endpoint to see all pay slips with strict project isolation."""
     query = {}
-    if project_id and project_id != 'null': query["project_id"] = project_id
+    if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+        # Robust Isolation: Match both string and ObjectId formats
+        pids = [str(project_id)]
+        try: pids.append(ObjectId(project_id))
+        except: pass
+        query["project_id"] = {"$in": pids}
+    else:
+        # Enforce isolation: Return unassigned slips only if no project_id
+        query["project_id"] = {"$in": [None, "", "null", "undefined"]}
+        
     cursor = db.pay_slips.find(query).sort("created_at", -1)
     slips = await cursor.to_list(100)
     return [format_payslip(s) for s in slips]

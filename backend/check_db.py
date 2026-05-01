@@ -7,20 +7,14 @@ async def main():
     client = motor.motor_asyncio.AsyncIOMotorClient(uri)
     db = client['worksheet_db']
     
-    print("--- Searching for user 'murali' ---")
-    user = await db.employees.find_one({"name": {"$regex": "murali", "$options": "i"}})
-    if user:
-        print(f"Found User: {user.get('name')}")
-        print(f"ID: {user.get('_id')}")
-        print(f"Avatar: {user.get('avatar')}")
-        print(f"Email: {user.get('email')}")
-    else:
-        print("User not found.")
-
-    print("\n--- Recent Employees ---")
-    cursor = db.employees.find().sort("created_at", -1).limit(5)
+    print(f"Connected to DB: {db.name}")
+    print(f"Collections: {await db.list_collection_names()}")
+    
+    print("\n--- All Employees with project_id ---")
+    cursor = db.Employees.find().limit(5)
     async for emp in cursor:
-        print(f"Name: {emp.get('name')}, Avatar: {emp.get('avatar')}")
+        p_id = emp.get('project_id')
+        print(f"Name: {emp.get('name')}, project_id: {p_id}, type: {type(p_id)}")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -19,7 +19,7 @@ async def seed_data():
     # 👑 1. ADMIN USER
     admin_email = "dilshajceo@dilshajinfotech.tech"
     print(f"👑 Creating Admin: {admin_email}")
-    await db.employees.update_one(
+    await db.Employees.update_one(
         {"email": admin_email},
         {"$set": {
             "employee_id": "ADMIN-001",
@@ -35,7 +35,7 @@ async def seed_data():
     # 👤 2. TEST EMPLOYEE
     user_id = "2026999"
     print(f"👤 Creating Employee: {user_id}")
-    await db.employees.update_one(
+    await db.Employees.update_one(
         {"employee_id": user_id},
         {"$set": {
             "employee_id": user_id,

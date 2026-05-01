@@ -28,7 +28,7 @@ def format_attendance(log):
         "employeeId": log.get("employee_id"),
         "userName": log.get("userName"),
         "userId": log.get("userId"),
-        "projectId": log.get("projectId"), # Key fix for dashboard visibility
+        "projectId": str(log.get("project_id")) if log.get("project_id") else (str(log.get("projectId")) if log.get("projectId") else None),
         "date": log.get("date"),
         "checkInTime": check_in,
         "checkIn": check_in,
@@ -104,7 +104,9 @@ def _ip_lookup(ip_address: str) -> tuple:
     return None, None
 
 async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None):
-    """Fetches all logs from MongoDB with optimized batch user lookup."""
+    """Fetches all logs from MongoDB with strict project isolation."""
+    if db.db is None:
+        return []
     try:
         query = {}
         
@@ -116,6 +118,10 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             
             query["project_id"] = {"$in": pids}
             logger.info(f"[ATTENDANCE] Filtering logs strictly for project_id: {project_id}")
+        else:
+            # Enforce isolation: If no project_id, return unassigned logs only
+            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
+            logger.info("[ATTENDANCE] No project_id provided. Returning unassigned logs only.")
 
         # 1. Fetch logs
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
@@ -154,11 +160,17 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
 
 async def get_active_checkin(employee_id: str, current_date: str):
     """Uses find_one to locate today's unfinished session."""
-    return await db.attendance.find_one({
-        "employee_id": employee_id,
-        "date": current_date,
-        "check_out": None
-    })
+    if db.db is None:
+        return None
+    try:
+        return await db.attendance.find_one({
+            "employee_id": employee_id,
+            "date": current_date,
+            "check_out": None
+        })
+    except Exception as e:
+        logger.error(f"Error getting active checkin: {e}")
+        return None
 
 async def check_in(
     employee_id: str,
@@ -170,115 +182,129 @@ async def check_in(
     request_meta: dict = None
 ):
     """Uses insert_one to create a new attendance log with GPS-first, IP-fallback logic."""
-    current_date, current_time = get_current_timestamps()
-    lat = _safe_float(latitude)
-    lng = _safe_float(longitude)
-    accuracy = _safe_float(location_accuracy)
-    source = location_source or "gps"
+    if db.db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    try:
+        current_date, current_time = get_current_timestamps()
+        lat = _safe_float(latitude)
+        lng = _safe_float(longitude)
+        accuracy = _safe_float(location_accuracy)
+        source = location_source or "gps"
 
-    # 1. GPS Logic: If coordinates are missing, try IP fallback
-    if lat is None or lng is None:
-        logger.info(f"[ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
-        ip_addr = _resolve_ip_from_request_meta(request_meta or {})
-        lat, lng = _ip_lookup(ip_addr)
-        source = "ip"
-        accuracy = None # IP accuracy is unknown/broad
-        
+        # 1. GPS Logic: If coordinates are missing, try IP fallback
         if lat is None or lng is None:
-            logger.error(f"[ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
-            raise HTTPException(
-                status_code=400, 
-                detail="Unable to determine location. Please enable GPS or check your internet connection."
-            )
+            logger.info(f"[ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
+            ip_addr = _resolve_ip_from_request_meta(request_meta or {})
+            lat, lng = _ip_lookup(ip_addr)
+            source = "ip"
+            accuracy = None # IP accuracy is unknown/broad
+            
+            if lat is None or lng is None:
+                logger.error(f"[ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Unable to determine location. Please enable GPS or check your internet connection."
+                )
 
-    # 2. Reverse Geocode to get a human-readable address
-    resolved_location_name = _reverse_geocode(lat, lng)
-    
-    # 3. Logging
-    logger.info(
-        f"[ATTENDANCE] Check-in source={source} employee={employee_id} "
-        f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
-    )
-    
-    # 4. Check for existing active check-in
-    status = await get_active_checkin(employee_id, current_date)
-    if status:
-        # If already checked in, refresh live location in the existing active row.
-        await db.attendance.update_one(
-            {"_id": status["_id"]},
-            {"$set": {
-                "latitude": lat,
-                "longitude": lng,
-                "location_name": resolved_location_name,
-                "location_source": source,
-                "location_accuracy": accuracy,
-                "updated_at": datetime.utcnow()
-            }}
+        # 2. Reverse Geocode to get a human-readable address
+        resolved_location_name = _reverse_geocode(lat, lng)
+        
+        # 3. Logging
+        logger.info(
+            f"[ATTENDANCE] Check-in source={source} employee={employee_id} "
+            f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
         )
-        status["latitude"] = lat
-        status["longitude"] = lng
-        status["location_name"] = resolved_location_name
-        status["location_source"] = source
-        status["location_accuracy"] = accuracy
+        
+        # 4. Check for existing active check-in
+        status = await get_active_checkin(employee_id, current_date)
+        if status:
+            # If already checked in, refresh live location in the existing active row.
+            await db.attendance.update_one(
+                {"_id": status["_id"]},
+                {"$set": {
+                    "latitude": lat,
+                    "longitude": lng,
+                    "location_name": resolved_location_name,
+                    "location_source": source,
+                    "location_accuracy": accuracy,
+                    "updated_at": datetime.utcnow()
+                }}
+            )
+            status["latitude"] = lat
+            status["longitude"] = lng
+            status["location_name"] = resolved_location_name
+            status["location_source"] = source
+            status["location_accuracy"] = accuracy
+            user = await db.employees.find_one({"employee_id": employee_id})
+            status["userName"] = user.get("name") if user else "Unknown"
+            status["userId"] = str(user.get("_id")) if user else None
+            logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
+            return format_attendance(status), False
+
         user = await db.employees.find_one({"employee_id": employee_id})
-        status["userName"] = user.get("name") if user else "Unknown"
-        status["userId"] = str(user.get("_id")) if user else None
-        logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
-        return format_attendance(status), False
+        project_id = user.get("project_id") if user else None
 
-    user = await db.employees.find_one({"employee_id": employee_id})
-    project_id = user.get("project_id") if user else None
+        new_log = {
+            "employee_id": employee_id,
+            "date": current_date,
+            "check_in": current_time,
+            "check_out": None,
+            "latitude": lat,
+            "longitude": lng,
+            "location_name": resolved_location_name,
+            "location_source": source,
+            "location_accuracy": accuracy,
+            "project_id": project_id,
+            "created_at": datetime.utcnow()
+        }
 
-    new_log = {
-        "employee_id": employee_id,
-        "date": current_date,
-        "check_in": current_time,
-        "check_out": None,
-        "latitude": lat,
-        "longitude": lng,
-        "location_name": resolved_location_name,
-        "location_source": source,
-        "location_accuracy": accuracy,
-        "project_id": project_id,
-        "created_at": datetime.utcnow()
-    }
-
-    result = await db.attendance.insert_one(new_log)
-    new_log["_id"] = result.inserted_id
-    
-    new_log["userName"] = user.get("name") if user else "Unknown"
-    new_log["userId"] = str(user.get("_id")) if user else None
-    new_log["projectId"] = project_id
-    
-    return format_attendance(new_log), True
+        result = await db.attendance.insert_one(new_log)
+        new_log["_id"] = result.inserted_id
+        
+        new_log["userName"] = user.get("name") if user else "Unknown"
+        new_log["userId"] = str(user.get("_id")) if user else None
+        new_log["projectId"] = project_id
+        
+        return format_attendance(new_log), True
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during check-in: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check in")
 
 async def check_out(employee_id: str):
     """Uses update_one to close an active check-in session for today."""
-    current_date, current_time = get_current_timestamps()
+    if db.db is None:
+        return None
+    try:
+        current_date, current_time = get_current_timestamps()
 
-    result = await db.attendance.update_one(
-        {
-            "employee_id": employee_id, 
-            "date": current_date, 
-            "check_out": None
-        },
-        {"$set": {"check_out": current_time}}
-    )
+        result = await db.attendance.update_one(
+            {
+                "employee_id": employee_id, 
+                "date": current_date, 
+                "check_out": None
+            },
+            {"$set": {"check_out": current_time}}
+        )
 
-    if result.modified_count > 0:
-        updated_log = await db.attendance.find_one({
-            "employee_id": employee_id, 
-            "date": current_date, 
-            "check_out": current_time
-        })
+        if result.modified_count > 0:
+            updated_log = await db.attendance.find_one({
+                "employee_id": employee_id, 
+                "date": current_date, 
+                "check_out": current_time
+            })
+            
+            user = await db.employees.find_one({"employee_id": employee_id})
+            updated_log["userName"] = user.get("name") if user else "Unknown"
+            updated_log["userId"] = str(user.get("_id")) if user else None
+            
+            return format_attendance(updated_log)
         
-        user = await db.employees.find_one({"employee_id": employee_id})
-        updated_log["userName"] = user.get("name") if user else "Unknown"
-        updated_log["userId"] = str(user.get("_id")) if user else None
-        
-        return format_attendance(updated_log)
-    
-    return None
+        return None
+    except Exception as e:
+        logger.error(f"Error during check-out: {e}")
+        return None
 
 async def export_attendance_to_excel():
     """Generates an Excel file (in-memory) containing all attendance logs."""

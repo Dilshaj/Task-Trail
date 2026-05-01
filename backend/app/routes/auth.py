@@ -26,6 +26,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if db.db is None:
+        raise credentials_exception
     try:
         # Use token directly
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -73,11 +75,15 @@ async def login(request: LoginRequest):
         access_token = auth_service.create_access_token(data=token_data)
         refresh_token = auth_service.create_refresh_token(data=token_data)
 
-        # Store refresh token in DB (optional but recommended for revocation)
-        await db.employees.update_one(
-            {"_id": user["_id"]},
-            {"$set": {"refresh_token": refresh_token}}
-        )
+        if db.db is not None:
+            try:
+                # Store refresh token in DB (optional but recommended for revocation)
+                await db.employees.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"refresh_token": refresh_token}}
+                )
+            except Exception as e:
+                logger.warning(f"Could not store refresh token in DB: {e}")
 
         from app.services.employee_service import format_employee
         fm_user = format_employee(user)
@@ -107,6 +113,8 @@ async def refresh_token(refresh_token: str):
         detail="Could not validate refresh token",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if db.db is None:
+        raise credentials_exception
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
