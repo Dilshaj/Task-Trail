@@ -1,0 +1,6 @@
+from app.db.database import engine
+from sqlalchemy import text
+with engine.connect() as con:
+    res = con.execute(text("SELECT id, name, employee_id FROM employees_table WHERE name LIKE '%murali%'")).fetchall()
+    for row in res:
+        print(f"ID: {row[0]}, NAME: {row[1]}, EID: {row[2]}")

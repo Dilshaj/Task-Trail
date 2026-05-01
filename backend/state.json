@@ -1,0 +1,74 @@
+{
+  "users": [
+    {
+      "name": "murali",
+      "eid": "2026992",
+      "pid": null
+    },
+    {
+      "name": "sai",
+      "eid": "980",
+      "pid": null
+    },
+    {
+      "name": "Test",
+      "eid": "EMP123",
+      "pid": null
+    },
+    {
+      "name": "hema ",
+      "eid": "9010",
+      "pid": null
+    },
+    {
+      "name": "rejrh",
+      "eid": "9399399",
+      "pid": null
+    },
+    {
+      "name": "bharat",
+      "eid": "2025002",
+      "pid": "p1"
+    },
+    {
+      "name": "jhon",
+      "eid": "20269001",
+      "pid": null
+    },
+    {
+      "name": "murali",
+      "eid": "2026991",
+      "pid": null
+    },
+    {
+      "name": "Test Verification Employee",
+      "eid": "EMP_TEST_VERIFY_999",
+      "pid": "p1"
+    },
+    {
+      "name": "Sooraj",
+      "eid": "2026018",
+      "pid": null
+    },
+    {
+      "name": "murali",
+      "eid": "2026999",
+      "pid": "93666793-abf2-4026-8d9d-900bb57241b9"
+    },
+    {
+      "name": "Admin",
+      "eid": "ADMIN-001",
+      "pid": null
+    }
+  ],
+  "projects": [
+    {
+      "name": "Moon Project",
+      "id": "4f6b5083-c073-45ed-ac27-0d1c4c49cbc6"
+    },
+    {
+      "name": "EduProva",
+      "id": "945bb6e2-3bd8-4f0c-9e26-d43d89c1b68e"
+    }
+  ]
+}

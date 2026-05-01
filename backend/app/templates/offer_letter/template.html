@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 10pt;
+            }
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            text-align: right;
+            margin-bottom: 5px;
+        }
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1e3a8a; /* Blue-900 */
+            margin: 0;
+        }
+        .company-info {
+            font-size: 9pt;
+            color: #666;
+            margin: 0;
+        }
+        .divider {
+            border-bottom: 2px solid #1e3a8a;
+            margin: 10px 0 30px 0;
+        }
+        .title {
+            text-align: center;
+            font-size: 20pt;
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 40px;
+            color: #1e3a8a;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .content {
+            margin-bottom: 15px;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 10pt;
+        }
+        .signature-area {
+            margin-top: 40px;
+        }
+        .watermark {
+            position: fixed;
+            top: 40%;
+            left: 10%;
+            width: 80%;
+            opacity: 0.1;
+            z-index: -1000;
+            text-align: center;
+            font-size: 80pt;
+            color: #eee;
+            transform: rotate(-45deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="watermark">DILSHAJ</div>
+
+    <div class="header">
+        <h1 class="company-name">Dilshaj Infotech</h1>
+        <p class="company-info">
+            Phone: +91 98765 43210 | Email: hr@dilshajinfotech.com<br>
+            Website: www.dilshajinfotech.com
+        </p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="title">OFFER LETTER</div>
+
+    <div class="content" style="margin-top: 20px;">
+        <p>Date: {{current_date}}</p>
+        <p><strong>To,</strong><br>
+        <strong>{{employee_name}}</strong><br>
+        Employee ID: {{employee_id}}</p>
+
+        <p>Dear {{employee_name}},</p>
+        <p>Congratulations! We are pleased to offer you the position of <strong>{{role}}</strong> at <strong>Dilshaj Infotech</strong>. We were impressed with your skills and experience during the interview process, and we are confident that you will be a valuable addition to our team.</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">1. Position Details</div>
+        <div class="content">
+            <p><strong>Title:</strong> {{role}}</p>
+            <p><strong>Joining Date:</strong> {{joining_date}}</p>
+            <p><strong>Location:</strong> {{location}}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">2. Compensation and Benefits</div>
+        <div class="content">
+            <p><strong>Annual Package (CTC):</strong> {{package}}</p>
+            <p>You will be eligible for standard company benefits, which include health insurance, paid time off, and other performance-based incentives as per the company policy.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">3. Working Hours</div>
+        <div class="content">
+            <p>Your standard working hours will be from 9:30 AM to 6:30 PM, Monday through Friday. However, you may be required to work additional hours as needed to fulfill your responsibilities.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">4. Company Policies</div>
+        <div class="content">
+            <p>As an employee of Dilshaj Infotech, you will be expected to adhere to all company policies, including those regarding confidentiality, data security, and professional conduct.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">5. General Terms</div>
+        <div class="content">
+            <p>This offer is contingent upon the successful completion of background checks and verification of your employment documents. This letter does not constitute a contract of employment for a fixed term.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">6. Acceptance</div>
+        <div class="content">
+            <p>Please review the terms of this offer. To indicate your acceptance, please sign and return a copy of this letter by {{expiry_date}}.</p>
+        </div>
+    </div>
+
+    <div class="signature-area">
+        <table style="width: 100%;">
+            <tr>
+                <td style="width: 50%;">
+                    <p>__________________________</p>
+                    <p><strong>For Dilshaj Infotech</strong><br>
+                    Authorized Signatory</p>
+                </td>
+                <td style="width: 50%; text-align: right;">
+                    <p>__________________________</p>
+                    <p><strong>Candidate Signature</strong><br>
+                    Date:</p>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        <div class="divider" style="margin-top: 30px;"></div>
+        <p style="text-align: center; color: #888; font-size: 8pt;">Registered Office: Tech Park, Floor 4, Sector 12, Bangalore, India - 560001</p>
+    </div>
+</body>
+</html>

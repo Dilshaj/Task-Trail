@@ -1,0 +1,48 @@
+﻿--- REGISTERED ROUTES ---
+['HEAD', 'GET'] /openapi.json
+['HEAD', 'GET'] /docs
+['HEAD', 'GET'] /docs/oauth2-redirect
+['HEAD', 'GET'] /redoc
+[] /static
+[] /uploads
+['POST'] /api/pay-slips
+['GET'] /api/pay-slips/my/{employee_id}
+['GET'] /api/pay-slips
+['GET'] /api/pay-slips/{id}/download
+['POST'] /api/auth/login
+['GET'] /api/employees/
+['POST'] /api/employees/
+['GET'] /api/employees/{id}
+['PUT'] /api/employees/{id}
+['PATCH'] /api/employees/{id}/progress
+['PUT'] /api/employees/{id}/assign
+['DELETE'] /api/employees/{id}
+['GET'] /api/projects/
+['POST'] /api/projects/upload-image
+['POST'] /api/projects/
+['PUT'] /api/projects/{id}
+['DELETE'] /api/projects/{id}
+['GET'] /api/tasks
+['GET'] /api/tasks/employee/{user_id}
+['POST'] /api/tasks
+['PUT'] /api/tasks/{id}/status
+['DELETE'] /api/tasks/{id}
+['GET'] /api/attendance/
+['POST'] /api/attendance/check-in
+['POST'] /api/attendance/employee/check-out
+['GET'] /api/dashboard/admin
+['GET'] /api/dashboard/employee/{user_id}
+['GET'] /api/employee/profile/{user_id}
+['PUT'] /api/employee/employee/update-profile
+['PUT'] /api/employee/update-profile
+['POST'] /api/offer-letter/
+['GET'] /api/offer-letter/
+['GET'] /api/offer-letter/{employee_id}
+['POST'] /api/employee/apply-leave
+['GET'] /api/employee/my-leaves/{employee_id}
+['GET'] /api/employee/all-leaves
+['PATCH'] /api/employee/update-status/{leave_id}
+['GET'] /api/health
+['GET'] /api/pay-slips/my/{employee_id}
+['POST'] /api/attendance/check-in
+-------------------------

@@ -1,0 +1,6 @@
+INFO:app.db.database:\u2705 SQL Server engine configured successfully.
+INFO:__main__:Checking database schema for employees_table...
+INFO:__main__:Available columns: ['id', 'name', 'employee_id', 'email', 'password_hash', 'is_first_login', 'user_role', 'avatar_url', 'joining_date', 'daily_progress', 'weekly_progress', 'project_id', 'created_at', 'updated_at']
+INFO:__main__:Sooraj found. UUID: 35bdd9f4-1dd8-4207-9dfe-eb627e38be4c. Current Avatar: https://res.cloudinary.com/dv1sih7vk/image/upload/v1741346387/sample.jpg
+INFO:__main__:Attempting manual update to: https://res.cloudinary.com/dv1sih7vk/image/upload/v1741346387/sample.jpg
+INFO:__main__:Verification after commit: https://res.cloudinary.com/dv1sih7vk/image/upload/v1741346387/sample.jpg

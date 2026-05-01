@@ -1,0 +1,46 @@
+﻿.\venv\Scripts\python : 
+INFO:app.db.database:\u2705 
+SQL Server engine configured 
+successfully.
+At line:1 char:1
++ .\venv\Scripts\python -m 
+uvicorn app.main:app --host 
+0.0.0.0 --port 5 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (INFO:ap  
+  p.db.dat...d successfull   
+ y.:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+INFO:     Started server 
+process [30716]
+INFO:     Waiting for 
+application startup.
+INFO:app.main:Initializing 
+Database...
+INFO:app.main:Database 
+schemas verified.
+INFO:app.main:Admin user 
+already exists. Skipping 
+setup.
+INFO:     Application 
+startup complete.
+ERROR:    [Errno 10048] 
+error while attempting to 
+bind on address ('0.0.0.0', 
+5000): [winerror 10048] only 
+one usage of each socket 
+address (protocol/network 
+address/port) is normally 
+permitted
+INFO:     Waiting for 
+application shutdown.
+INFO:app.main:Shutting down 
+API Service...
+INFO:     Application 
+shutdown complete.

@@ -1,0 +1,11 @@
+﻿=== DATABASE: avatar_url per employee ===
+
+Employee: murali (ID: 2026999)
+  -> CLOUDINARY URL (CORRECT!): https://res.cloudinary.com/dv1sih7vk/image/upload/v1775488150/avatars/f1kym5rfc7tusjd45mjr.jpg
+
+Employee: System Admin (ID: ADMIN-001)
+  -> EXTERNAL URL: https://ui-avatars.com/api/?name=System+Admin&background=random
+
+Employee: jhon (ID: 2026001)
+  -> avatar_url = NULL (no image)
+

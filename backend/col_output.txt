@@ -1,0 +1,1 @@
+﻿ACTUAL Columns: ['id', 'name', 'employee_id', 'email', 'password_hash', 'is_first_login', 'user_role', 'avatar_url', 'joining_date', 'daily_progress', 'weekly_progress', 'project_id', 'created_at', 'updated_at']

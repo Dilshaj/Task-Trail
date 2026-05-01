@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.5;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2pt solid #1e3a8a;
+            padding-bottom: 10pt;
+            margin-bottom: 20pt;
+        }
+        .logo {
+            height: 50pt;
+            margin-bottom: 5pt;
+        }
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            text-transform: uppercase;
+        }
+        .slip-title {
+            text-align: center;
+            font-size: 14pt;
+            font-weight: bold;
+            background-color: #f1f5f9;
+            padding: 5pt;
+            margin-bottom: 20pt;
+            border: 1pt solid #cbd5e1;
+        }
+        .info-table {
+            width: 100%;
+            margin-bottom: 20pt;
+            border-collapse: collapse;
+        }
+        .info-table td {
+            padding: 4pt 8pt;
+            width: 25%;
+        }
+        .label {
+            font-weight: bold;
+            color: #475569;
+        }
+        .value {
+            border-bottom: 0.5pt solid #e2e8f0;
+        }
+        .salary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30pt;
+        }
+        .salary-table th {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 8pt;
+            text-align: left;
+        }
+        .salary-table td {
+            border: 0.5pt solid #e2e8f0;
+            padding: 8pt;
+        }
+        .total-row {
+            background-color: #f8fafc;
+            font-weight: bold;
+        }
+        .net-salary {
+            text-align: right;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-top: 10pt;
+            padding: 10pt;
+            border-top: 2pt solid #1e3a8a;
+        }
+        .footer {
+            margin-top: 50pt;
+            font-size: 8pt;
+            color: #94a3b8;
+            text-align: center;
+            border-top: 0.5pt solid #e2e8f0;
+            padding-top: 10pt;
+        }
+        .signature {
+            margin-top: 60pt;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{{logo_path}}" class="logo">
+        <div class="company-name">DILSHAJ INFOTECH PVT LTD</div>
+        <div style="font-size: 9pt; color: #64748b;">Tech Park, Floor 4, Sector 12, Bangalore - 560001</div>
+    </div>
+
+    <div class="slip-title">PAYSLIP FOR THE MONTH OF {{month}}</div>
+
+    <table class="info-table">
+        <tr>
+            <td class="label">Employee Name:</td>
+            <td class="value">{{employee_name}}</td>
+            <td class="label">Employee ID:</td>
+            <td class="value">{{employee_id}}</td>
+        </tr>
+        <tr>
+            <td class="label">Designation:</td>
+            <td class="value">{{role}}</td>
+            <td class="label">Project:</td>
+            <td class="value">{{project_name}}</td>
+        </tr>
+        <tr>
+            <td class="label">Earnings Period:</td>
+            <td class="value">{{month}}</td>
+            <td class="label">Payment Status:</td>
+            <td class="value" style="color: green; font-weight: bold;">{{status}}</td>
+        </tr>
+    </table>
+
+    <table class="salary-table">
+        <thead>
+            <tr>
+                <th style="width: 70%;">Standard Salary Components</th>
+                <th style="width: 30%; text-align: right;">Amount (INR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Basic Salary</td>
+                <td style="text-align: right;">{{basic_salary}}</td>
+            </tr>
+            <tr>
+                <td>House Rent Allowance (HRA)</td>
+                <td style="text-align: right;">{{hra}}</td>
+            </tr>
+            <tr>
+                <td>Conveyance Allowance</td>
+                <td style="text-align: right;">{{conveyance}}</td>
+            </tr>
+            <tr>
+                <td>Special Allowance</td>
+                <td style="text-align: right;">{{special_allowance}}</td>
+            </tr>
+            <tr class="total-row">
+                <td>Gross Earnings</td>
+                <td style="text-align: right;">{{amount}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="net-salary">
+        Net Payable: <span style="font-size: 16pt;">₹ {{amount}}</span>
+    </div>
+
+    <div style="font-style: italic; font-size: 9pt; margin-top: 10pt;">
+        Amount in words: {{amount_in_words}} Only.
+    </div>
+
+    <table class="signature">
+        <tr>
+            <td style="width: 60%;">
+                <div style="margin-top: 40pt; font-size: 9pt;">
+                    * This is a computer generated document and does not require a physical signature.
+                </div>
+            </td>
+            <td style="width: 40%; text-align: right;">
+                <div style="border-top: 1pt solid #333; display: inline-block; padding-top: 5pt; width: 150pt; text-align: center;">
+                    <strong>Authorized Signatory</strong><br>
+                    Dilshaj Infotech
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        © 2026 Dilshaj Infotech | Confidential Document | Generated on {{generated_on}}
+    </div>
+</body>
+</html>
