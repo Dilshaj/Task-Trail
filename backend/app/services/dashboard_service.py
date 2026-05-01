@@ -6,6 +6,8 @@ async def get_admin_dashboard_stats(project_id: str = None):
     Calculates key metrics for the admin overview using MongoDB aggregations.
     If project_id is provided, filters metrics for that specific project.
     """
+    if db.db is None:
+        return {"projects": 0, "employees": 0, "tasks": {"completed": 0, "total": 0}, "attendance": {"total": 0, "today": 0}}
     query = {}
     if project_id:
         query["project_id"] = project_id
@@ -71,6 +73,8 @@ async def get_monthly_attendance_chart():
     """
     Generates data for a 30-day activity chart using aggregation.
     """
+    if db.db is None:
+        return []
     chart_pipeline = [
         {"$group": {"_id": "$date", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},

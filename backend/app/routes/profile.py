@@ -22,6 +22,8 @@ async def profile_health():
 @router.get("/profile/{user_id}", response_model=UserResponse)
 async def get_profile(user_id: str):
     """Retrieve profile from MongoDB using internal ObjectId."""
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
     try:
         user = await db.employees.find_one({"_id": ObjectId(user_id)})
         if not user:
@@ -43,6 +45,8 @@ async def update_profile(
     current_user: dict = Depends(get_current_user)
 ):
     """Update profile using Cloudinary directly (No local storage)."""
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
     try:
         user_id = current_user.get("id")
         logger.info(f"🚀 [UPLOAD] Received update for {user_id}")

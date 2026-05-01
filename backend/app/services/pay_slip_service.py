@@ -44,6 +44,8 @@ class PaySlipService:
     @staticmethod
     async def get_pay_slip_data(payslip_id: str):
         """Fetches payslip data and joins with employee/project info."""
+        if db.db is None:
+            raise HTTPException(status_code=503, detail="Database not connected")
         try:
             slip = await db.pay_slips.find_one({"_id": ObjectId(payslip_id)})
             if not slip:

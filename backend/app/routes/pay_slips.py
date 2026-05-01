@@ -27,6 +27,8 @@ def format_payslip(slip):
 @router.get("/pay-slips/latest/{employee_id}")
 async def download_latest_pay_slip(employee_id: str):
     """Finds and downloads the latest pay slip."""
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
     logger.info(f"📥 [LATEST] Request for: {employee_id}")
     try:
         from app.services.pay_slip_service import PaySlipService
@@ -52,6 +54,8 @@ async def download_latest_pay_slip(employee_id: str):
 
 @router.get("/pay-slips/{id}/download")
 async def download_pay_slip_id(id: str):
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
     from app.services.pay_slip_service import PaySlipService
     from fastapi.responses import FileResponse
     data = await PaySlipService.get_pay_slip_data(id)
@@ -61,6 +65,8 @@ async def download_pay_slip_id(id: str):
 @router.get("/pay-slips")
 async def get_all_slips(project_id: Optional[str] = None):
     """Admin endpoint to see all pay slips with strict project isolation."""
+    if db.db is None:
+        return []
     query = {}
     if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
         # Robust Isolation: Match both string and ObjectId formats
@@ -78,6 +84,8 @@ async def get_all_slips(project_id: Optional[str] = None):
 
 @router.post("/pay-slips")
 async def create_slip(payload: PaySlipCreate):
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
     new_slip = payload.model_dump()
     new_slip["created_at"] = datetime.utcnow()
     result = await db.pay_slips.insert_one(new_slip)
@@ -86,6 +94,8 @@ async def create_slip(payload: PaySlipCreate):
 
 @router.get("/pay-slips/my/{employee_id}")
 async def get_my_slips(employee_id: str):
+    if db.db is None:
+        return []
     cursor = db.pay_slips.find({"employee_id": employee_id}).sort("created_at", -1)
     slips = await cursor.to_list(100)
     return [format_payslip(s) for s in slips]

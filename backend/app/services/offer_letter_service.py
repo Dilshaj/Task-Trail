@@ -42,6 +42,8 @@ class OfferLetterService:
     @staticmethod
     async def create_offer_letter(offer_data: OfferLetterCreate):
         """Creates or updates an offer letter document in MongoDB."""
+        if db.db is None:
+            raise HTTPException(status_code=503, detail="Database not connected")
         offer_dict = {
             "employee_id": offer_data.employee_id,
             "name": offer_data.employee_name,
@@ -64,6 +66,8 @@ class OfferLetterService:
     @staticmethod
     async def get_offer_letter_data(employee_id: str):
         """Fetches offer letter document."""
+        if db.db is None:
+            raise HTTPException(status_code=503, detail="Database not connected")
         offer = await db.offers.find_one({"employee_id": employee_id})
         if not offer:
             raise HTTPException(status_code=404, detail="Offer letter not found")
@@ -72,6 +76,8 @@ class OfferLetterService:
     @staticmethod
     async def get_all_offer_letters(skip: int = 0, limit: int = 100, project_id: str = None):
         """Returns all offer letters with strict project isolation."""
+        if db.db is None:
+            return []
         query = {}
         if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
             # Robust Isolation: Match both string and ObjectId formats
