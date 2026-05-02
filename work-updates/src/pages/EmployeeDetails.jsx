@@ -32,7 +32,7 @@ const EmployeeDetails = () => {
         assignTask(taskData);
     };
 
-    const recentUpdates = employeeTasks.filter(t => t.status === 'Completed').sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
+    const recentUpdates = [...employeeTasks].sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
     const dailyTasks = employeeTasks.filter(t => t.timeline === 'daily');
     const weeklyTasks = employeeTasks.filter(t => t.timeline === 'weekly');
 
@@ -122,13 +122,21 @@ const EmployeeDetails = () => {
                             <Clock className="h-5 w-5 text-blue-500 dark:text-blue-400" /> Latest Work Updates
                         </h3>
                         <div className="space-y-4">
-                            {recentUpdates.length > 0 ? recentUpdates.slice(0, 3).map(task => (
+                            {recentUpdates.length > 0 ? recentUpdates.slice(0, 5).map(task => (
                                 <div key={task.id} className="flex gap-4 items-start p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
                                     <div className="flex-1">
-                                        <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">Completed: {task.title}</h4>
+                                        <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
+                                            {task.status === 'Completed' ? 'Finished' : 'Assigned'}: {task.title}
+                                        </h4>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{task.description}</p>
                                     </div>
-                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md">Done</span>
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-md ${
+                                        task.status === 'Completed' 
+                                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' 
+                                            : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+                                    }`}>
+                                        {task.status}
+                                    </span>
                                 </div>
                             )) : (
                                 <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No recent updates.</p>
