@@ -2,13 +2,17 @@ from fastapi import APIRouter, HTTPException, status, Query
 from typing import List, Optional
 from app.schemas.schemas import TaskResponse, TaskCreate, TaskStatusUpdate
 from app.services import task_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tasks")
 
 @router.get("", response_model=List[TaskResponse])
-async def get_all_tasks(project_id: Optional[str] = Query(None)):
-    """Retrieve all tasks from MongoDB."""
-    return await task_service.get_tasks_by_project(project_id=project_id)
+async def get_tasks(project_id: Optional[str] = Query(None)):
+    tasks = await task_service.get_tasks_by_project(project_id=project_id)
+    logger.info(f"✅ [TASKS] Found {len(tasks)} tasks for project_id: {project_id}")
+    return tasks
 
 @router.get("/employee/{user_id}", response_model=List[TaskResponse])
 async def get_employee_tasks(user_id: str):
@@ -18,10 +22,17 @@ async def get_employee_tasks(user_id: str):
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(task: TaskCreate):
     """Create a new task in MongoDB."""
+    logger.info(f"📥 [ROUTE] POST /api/tasks | Data: {task.model_dump()}")
     task_data = task.model_dump()
     # Map from frontend CamelCase if necessary, or let service handle it
     # Pydantic validation_alias takes care of most mappings
-    return await task_service.create_task(task_data=task_data)
+    result = await task_service.create_task(task_data=task_data)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create task in database. Please check backend logs."
+        )
+    return result
 
 @router.put("/{id}/status", response_model=TaskResponse)
 async def update_task_status(id: str, status_update: TaskStatusUpdate):

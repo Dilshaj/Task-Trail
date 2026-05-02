@@ -8,23 +8,29 @@ logger = logging.getLogger(__name__)
 def format_task(task):
     if not task:
         return None
-    return {
-        "id": str(task.get("_id")),
-        "_id": str(task.get("_id")),
-        "title": task.get("title"),
-        "description": task.get("description"),
-        "deadline": task.get("deadline"),
-        "priority": task.get("priority"),
-        "status": task.get("status"),
-        "timeline": task.get("timeline"),
-        "assignedTo": task.get("assigned_to"),
-        "assigned_to": task.get("assigned_to"),
-        "projectId": str(task.get("project_id")) if task.get("project_id") else None,
-        "project_id": str(task.get("project_id")) if task.get("project_id") else None,
-        "progress": task.get("progress", 0.0),
-        "createdAt": task.get("created_at"),
-        "created_at": task.get("created_at")
-    }
+        
+    try:
+        # Ensure all ID fields are strings for Pydantic/Frontend consistency
+        return {
+            "id": str(task.get("_id")),
+            "_id": str(task.get("_id")),
+            "title": task.get("title"),
+            "description": task.get("description"),
+            "deadline": task.get("deadline"),
+            "priority": task.get("priority", "Medium"),
+            "status": task.get("status", "Pending"),
+            "timeline": task.get("timeline", "daily"),
+            "assignedTo": str(task.get("assigned_to")) if task.get("assigned_to") else None,
+            "assigned_to": str(task.get("assigned_to")) if task.get("assigned_to") else None,
+            "projectId": str(task.get("project_id")) if task.get("project_id") else None,
+            "project_id": str(task.get("project_id")) if task.get("project_id") else None,
+            "progress": float(task.get("progress", 0.0)) if task.get("progress") is not None else 0.0,
+            "createdAt": task.get("created_at"),
+            "created_at": task.get("created_at")
+        }
+    except Exception as e:
+        logger.error(f"❌ Error formatting task {task.get('_id')}: {e}")
+        return None
 
 async def recalculate_employee_progress(employee_id: str):
     """
@@ -93,9 +99,14 @@ async def recalculate_employee_progress(employee_id: str):
 
 async def create_task(task_data: dict):
     """Inserts a new task and triggers progress sync."""
+    print(f"DEBUG: create_task called with {task_data}")
     if db.db is None:
+        logger.error("❌ CREATE TASK ERROR: Database connection is None")
+        print("DEBUG: db.db is None")
         return None
     try:
+        logger.info(f"📝 Creating task with data: {task_data}")
+        print("DEBUG: Constructing db_data")
         db_data = {
             "title": task_data.get("title"),
             "description": task_data.get("description"),
@@ -109,17 +120,23 @@ async def create_task(task_data: dict):
             "created_at": datetime.utcnow()
         }
         
+        logger.info(f"📤 Inserting into MongoDB: {db_data}")
+        print(f"DEBUG: Inserting into {db.tasks.name}")
         result = await db.tasks.insert_one(db_data)
         task_id = result.inserted_id
+        logger.info(f"✅ Task inserted with ID: {task_id}")
         
         # 🔥 Trigger Auto-Sync
         if db_data["assigned_to"]:
+            logger.info(f"🔄 Triggering progress sync for employee: {db_data['assigned_to']}")
             await recalculate_employee_progress(db_data["assigned_to"])
             
         db_data["_id"] = task_id
         return format_task(db_data)
     except Exception as e:
-        logger.error(f"Error creating task: {e}")
+        logger.error(f"❌ CRITICAL ERROR IN create_task: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 async def get_tasks_by_employee(employee_id: str):
@@ -198,12 +215,21 @@ async def get_tasks_by_project(project_id: str = None):
                 pass
             query["project_id"] = {"$in": pids}
         else:
-            # Strictly return unassigned tasks only if no project_id is provided
-            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
+            # If no project_id is provided, we return ALL tasks.
+            # This is necessary for the Global Admin Dashboard to show total counts.
+            pass
             
         cursor = db.tasks.find(query).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=500)
-        return [format_task(t) for t in raw_tasks]
+        
+        # Filter out None values from failed formatting
+        formatted_tasks = []
+        for t in raw_tasks:
+            formatted = format_task(t)
+            if formatted:
+                formatted_tasks.append(formatted)
+        
+        return formatted_tasks
     except Exception as e:
         logger.error(f"🔥 GET TASKS ERROR: {str(e)}")
         return []

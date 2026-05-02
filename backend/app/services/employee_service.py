@@ -122,12 +122,9 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None)
             query["project_id"] = {"$in": p_ids}
             logger.info(f"[ISOLATION] Filtering employees for project_id: {project_id}")
         else:
-            # If no project_id is provided, and we want STRICT isolation, 
-            # we should either return NOTHING or only employees with NO project.
-            # The requirement suggests filtering by selected_project_id is mandatory.
-            # We'll filter for employees with NO project_id to avoid "all-projects" leakage.
-            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
-            logger.info("[ISOLATION] No project_id provided. Returning unassigned employees only.")
+            # If no project_id is provided, we return ALL employees.
+            # This is necessary for the Global Admin Dashboard to show total counts.
+            logger.info("[ISOLATION] No project_id provided. Returning all employees.")
         
         cursor = db.employees.find(query).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)
