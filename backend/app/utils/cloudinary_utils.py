@@ -18,7 +18,7 @@ cloudinary.config(
 print(f"Cloudinary: {settings.CLOUDINARY_CLOUD_NAME} | Key: {settings.CLOUDINARY_API_KEY[:4]}... | Secret: {'Yes' if settings.CLOUDINARY_API_SECRET else 'No'}")
 
 # 🌐 RELIABLE PLACEHOLDER (UI-Avatars)
-DEFAULT_IMAGE = "https://ui-avatars.com/api/?name=System&background=random&color=fff&bold=true"
+# Note: Handled by format_employee in employee_service.py using the REAL name.
 
 def upload_image(file, folder="projects"):
     """
@@ -35,8 +35,8 @@ def upload_image(file, folder="projects"):
         return url
     except Exception as e:
         logger.error(f"❌ Cloudinary Upload Error: {e}")
-        # 🛡️ Return default to keep the app working even if creds are broken
-        return DEFAULT_IMAGE
+        # 🛡️ Return None to let format_employee generate a name-based avatar
+        return None
 
 def upload_base64_image(base64_string, folder="projects"):
     """
@@ -53,4 +53,4 @@ def upload_base64_image(base64_string, folder="projects"):
         return url
     except Exception as e:
         logger.error(f"❌ Cloudinary Base64 Error: {e}")
-        return DEFAULT_IMAGE
+        return None

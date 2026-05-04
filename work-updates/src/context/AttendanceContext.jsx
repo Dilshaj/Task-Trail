@@ -35,17 +35,16 @@ export const AttendanceProvider = ({ children }) => {
         updatingRef.current = true;
         setIsUpdating(true);
         try {
+            // 1. Fetch history (Ensuring project-id is passed to bypass isolation filters)
             const isAdmin = user?.role === 'admin';
-            const projId = isAdmin ? selectedProjectId : null;
+            const projId = isAdmin ? selectedProjectId : (user.projectId || user.project_id);
             const data = await getAttendanceLogs(projId);
-
             setLogs(data);
 
-            const today = new Date().toISOString().split('T')[0];
-            const empId = user.employeeId || user.employee_id || user.id;
-            const active = data.find(l =>
-                String(l.employeeId) === String(empId) &&
-                l.date === today &&
+            // 2. Find active log for the current user manually (Avoids 404 on new endpoints)
+            const empId = user.employee_id || user.employeeId || user.id;
+            const active = data.find(l => 
+                String(l.employeeId) === String(empId) && 
                 l.status === 'Checked In'
             );
             setActiveLog(active || null);

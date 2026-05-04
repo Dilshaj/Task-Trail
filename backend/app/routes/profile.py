@@ -35,7 +35,6 @@ async def get_profile(user_id: str):
          raise HTTPException(status_code=400, detail="Invalid user ID format")
 
 @router.put("/update-profile")
-@router.put("/employee/update-profile")
 async def update_profile(
     request: Request,
     name: str = Form(...),
@@ -71,8 +70,8 @@ async def update_profile(
             contents = await profile_image.read()
             cloudinary_url = upload_to_cloudinary(contents, folder="avatars")
             
-            # 🛡️ If upload fails, cloudinary_url will be the default, and we save that.
-            # format_employee will later ensure it's a dynamic dynamic avatar.
+            # 🛡️ Only update if upload actually worked. 
+            # If it failed (returned None), format_employee will auto-generate a name-based avatar.
             if cloudinary_url:
                 update_data["avatar"] = cloudinary_url
 
@@ -91,6 +90,9 @@ async def update_profile(
             "user": format_employee(result)
         }
     except Exception as e:
+        logger.error(f"🔥 PROFILE UPDATE CRASH: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

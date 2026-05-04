@@ -22,10 +22,23 @@ const EmployeeDetails = () => {
     const [dailyProgress, setDailyProgress] = useState(employee?.dailyProgress || 0);
     const [weeklyProgress, setWeeklyProgress] = useState(employee?.weeklyProgress || 0);
 
-    if (!employee) return <div>Loading...</div>;
+    // Sync state if employee data changes (e.g. after initial load)
+    React.useEffect(() => {
+        if (employee) {
+            setDailyProgress(employee.dailyProgress || 0);
+            setWeeklyProgress(employee.weeklyProgress || 0);
+        }
+    }, [employee?.id]);
 
-    const handleManualProgressUpdate = () => {
-        updateProgress(employee.id, { dailyProgress: Number(dailyProgress), weeklyProgress: Number(weeklyProgress) });
+    if (!employee) return <div className="flex items-center justify-center py-20 text-slate-500">Loading employee details...</div>;
+
+    const handleManualProgressUpdate = async () => {
+        try {
+            await updateProgress(employee.id, { dailyProgress: Number(dailyProgress), weeklyProgress: Number(weeklyProgress) });
+            alert("Progress updated successfully!");
+        } catch (err) {
+            alert("Failed to update progress: " + err.message);
+        }
     };
 
     const handleAssignTask = (taskData) => {
@@ -78,40 +91,55 @@ const EmployeeDetails = () => {
                         </div>
                     </div>
 
-                    <div className="space-y-6 pt-6 border-t border-slate-200/40 dark:border-slate-800 w-full">
+                    <div className="space-y-6 pt-6 border-t border-slate-200/40 dark:border-slate-800 w-full bg-slate-50/50 dark:bg-slate-900/20 p-4 rounded-xl">
+                        <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                            <Target className="h-4 w-4 text-indigo-500" /> Set Manual Progress
+                        </h4>
+                        
                         <div>
-                            <div className="flex justify-between items-center text-sm font-medium mb-3">
-                                <label className="text-slate-600 dark:text-slate-300 flex items-center gap-2 font-semibold">
-                                    <Target className="h-4 w-4 text-blue-500" /> Daily Progress
+                            <div className="flex justify-between items-center text-sm font-medium mb-2">
+                                <label className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                                    Daily Progress
                                 </label>
-                                <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-1 rounded-full text-xs font-bold">
-                                    {employee.dailyProgress || 0}%
+                                <span className="text-blue-600 dark:text-blue-400 font-bold">
+                                    {dailyProgress}%
                                 </span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
-                                <div
-                                    className="bg-blue-600 h-full rounded-full transition-all duration-1000"
-                                    style={{ width: `${employee.dailyProgress || 0}%` }}
-                                ></div>
-                            </div>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={dailyProgress} 
+                                onChange={(e) => setDailyProgress(e.target.value)}
+                                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
                         </div>
 
                         <div>
-                            <div className="flex justify-between items-center text-sm font-medium mb-3">
-                                <label className="text-slate-600 dark:text-slate-300 flex items-center gap-2 font-semibold">
-                                    <Target className="h-4 w-4 text-emerald-500" /> Weekly Progress
+                            <div className="flex justify-between items-center text-sm font-medium mb-2">
+                                <label className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                                    Weekly Progress
                                 </label>
-                                <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1 rounded-full text-xs font-bold">
-                                    {employee.weeklyProgress || 0}%
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                    {weeklyProgress}%
                                 </span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
-                                <div
-                                    className="bg-emerald-500 h-full rounded-full transition-all duration-1000"
-                                    style={{ width: `${employee.weeklyProgress || 0}%` }}
-                                ></div>
-                            </div>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={weeklyProgress} 
+                                onChange={(e) => setWeeklyProgress(e.target.value)}
+                                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                            />
                         </div>
+
+                        <button
+                            onClick={handleManualProgressUpdate}
+                            className="w-full mt-2 bg-slate-800 dark:bg-indigo-600 hover:bg-slate-900 dark:hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                            Save Progress Percentages
+                        </button>
                     </div>
                 </div>
 

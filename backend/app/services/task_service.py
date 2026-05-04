@@ -40,21 +40,24 @@ async def recalculate_employee_progress(employee_id: str):
         return
 
     try:
-        # Fetch all tasks for this employee
+        # 1. Fetch the employee to check for manual override flag
+        query = {"$or": [{"employee_id": employee_id}]}
+        try: query["$or"].append({"_id": ObjectId(employee_id)})
+        except: pass
+        
+        emp = await db.employees.find_one(query)
+        if emp and emp.get("manual_progress_override") is True:
+            logger.info(f"⏭️ Skipping auto-sync for {employee_id} (Manual Override Active)")
+            return
+
+        # 2. Fetch all tasks for this employee
         cursor = db.tasks.find({"assigned_to": employee_id})
         all_tasks = await cursor.to_list(length=1000)
         
         if not all_tasks:
             # Reset to 0 if no tasks
-            # 🛡️ Robust Update: Match by MongoDB _id (if valid) OR human-readable employee_id
-            update_query = {"$or": [{"employee_id": employee_id}]}
-            try:
-                update_query["$or"].append({"_id": ObjectId(employee_id)})
-            except:
-                pass
-                
             await db.employees.update_one(
-                update_query,
+                query,
                 {"$set": {"work_progress_perc": 0.0, "overall_progress_perc": 0.0}}
             )
             return
@@ -78,15 +81,8 @@ async def recalculate_employee_progress(employee_id: str):
         daily_perc = calc_perc(daily_tasks)
         weekly_perc = calc_perc(weekly_tasks)
 
-        # 🛡️ Robust Update: Match by MongoDB _id (if valid ObjectId) OR human-readable employee_id
-        update_query = {"$or": [{"employee_id": employee_id}]}
-        try:
-            update_query["$or"].append({"_id": ObjectId(employee_id)})
-        except:
-            pass
-            
         await db.employees.update_one(
-            update_query,
+            query,
             {"$set": {
                 "work_progress_perc": daily_perc,
                 "overall_progress_perc": weekly_perc,

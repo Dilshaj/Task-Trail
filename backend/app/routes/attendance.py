@@ -13,6 +13,11 @@ router = APIRouter(prefix="/attendance", tags=["Attendance"])
 async def test_attendance():
     return {"status": "attendance router is working"}
 
+@router.get("/current-status/{employee_id}")
+async def get_employee_current_status(employee_id: str):
+    """Retrieves current check-in status for an employee."""
+    return await attendance_service.get_employee_status(employee_id)
+
 @router.get("/")
 @router.get("")
 async def get_attendance_logs(project_id: Optional[str] = Query(None), skip: int = 0, limit: int = 100):

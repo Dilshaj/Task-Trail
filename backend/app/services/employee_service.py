@@ -76,9 +76,9 @@ def format_employee(emp):
     else:
         final_avatar = avatar
 
-    # Get persisted values (defaulting to 0.0 if never set)
-    work_prog = float(emp.get("work_progress_perc", 0.0))
-    overall_prog = float(emp.get("overall_progress_perc", 0.0))
+    # Get persisted values (defaulting to 0.0 if never set or None)
+    work_prog = float(emp.get("work_progress_perc") or 0.0)
+    overall_prog = float(emp.get("overall_progress_perc") or 0.0)
     
     return {
         "id": str(emp.get("_id")),
@@ -99,6 +99,11 @@ def format_employee(emp):
         "weeklyProgress": overall_prog,
         "work_progress_perc": work_prog,
         "overall_progress_perc": overall_prog,
+        
+        "isCheckedIn": emp.get("is_checked_in", False),
+        "is_checked_in": emp.get("is_checked_in", False),
+        "lastCheckIn": emp.get("last_check_in"),
+        "lastCheckOut": emp.get("last_check_out"),
         
         "createdAt": emp.get("created_at"),
         "created_at": emp.get("created_at"),
@@ -192,19 +197,27 @@ async def create_employee(employee: EmployeeCreate):
         return None
 
 async def update_employee_progress(user_id: str, progress: EmployeeProgressUpdate):
-    """Persist the manual slider updates to MongoDB."""
+    """Persist the manual slider updates to MongoDB and set override flag."""
     if db.db is None:
         return None
     try:
         update_data = {
             "work_progress_perc": float(progress.work_progress_perc),
             "overall_progress_perc": float(progress.overall_progress_perc),
+            "manual_progress_override": True, # 🔥 Prevent auto-sync from overwriting this
             "updated_at": datetime.utcnow()
         }
         
-        await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
-        logger.info(f"✅ PERSISTED Progress for {user_id}: {update_data}")
-        return await get_employee_by_id(user_id)
+        # 🛡️ Robust Match: Try ObjectId then employee_id
+        query = {"$or": [{"employee_id": user_id}]}
+        try:
+            query["$or"].append({"_id": ObjectId(user_id)})
+        except:
+            pass
+            
+        await db.employees.update_one(query, {"$set": update_data})
+        logger.info(f"✅ PERSISTED Manual Progress for {user_id}: {update_data}")
+        return await get_employee_by_id(user_id) or await get_employee_by_employee_id(user_id)
     except Exception as e:
         logger.error(f"Error updating employee progress: {e}")
         return None

@@ -50,3 +50,4 @@ uploads/*
 *.pdf
 pdf_dump.txt
 pdf_dump_utf8.txt
+*.log

@@ -158,19 +158,40 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
         # Return empty list instead of crashing with 500 if it's a minor error
         return []
 
-async def get_active_checkin(employee_id: str, current_date: str):
-    """Uses find_one to locate today's unfinished session."""
+async def get_active_checkin(employee_id: str, current_date: str = None):
+    """Uses find_one to locate an unfinished session. If date is provided, matches today's session."""
     if db.db is None:
         return None
     try:
-        return await db.attendance.find_one({
+        query = {
             "employee_id": employee_id,
-            "date": current_date,
             "check_out": None
-        })
+        }
+        if current_date:
+            query["date"] = current_date
+            
+        return await db.attendance.find_one(query)
     except Exception as e:
         logger.error(f"Error getting active checkin: {e}")
         return None
+
+async def get_employee_status(employee_id: str):
+    """Returns the current attendance status for an employee."""
+    if db.db is None:
+        return {"is_checked_in": False}
+    try:
+        current_date, _ = get_current_timestamps()
+        active = await get_active_checkin(employee_id, current_date)
+        
+        if active:
+            return {
+                "is_checked_in": True,
+                "active_log": format_attendance(active)
+            }
+        return {"is_checked_in": False}
+    except Exception as e:
+        logger.error(f"Error fetching status: {e}")
+        return {"is_checked_in": False}
 
 async def check_in(
     employee_id: str,
@@ -265,6 +286,12 @@ async def check_in(
         new_log["userId"] = str(user.get("_id")) if user else None
         new_log["projectId"] = project_id
         
+        # 🔥 Sync status to Employee record
+        await db.employees.update_one(
+            {"employee_id": employee_id},
+            {"$set": {"is_checked_in": True, "last_check_in": current_time}}
+        )
+        
         return format_attendance(new_log), True
     except HTTPException:
         raise
@@ -288,6 +315,12 @@ async def check_out(employee_id: str):
             {"$set": {"check_out": current_time}}
         )
 
+        # 🔥 Sync status to Employee record
+        await db.employees.update_one(
+            {"employee_id": employee_id},
+            {"$set": {"is_checked_in": False, "last_check_out": current_time}}
+        )
+        
         if result.modified_count > 0:
             updated_log = await db.attendance.find_one({
                 "employee_id": employee_id, 

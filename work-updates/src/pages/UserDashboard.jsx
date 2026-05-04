@@ -12,7 +12,7 @@ import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipServi
 
 const UserDashboard = () => {
     const { user } = useAuth();
-    const { employees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
+    const { employees, allEmployees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
     const { activeLog, loading, locationStatus, handleCheckIn, handleCheckOut } = useAttendance();
     const navigate = useNavigate();
     const [showSlipHistory, setShowSlipHistory] = useState(false);
@@ -21,6 +21,11 @@ const UserDashboard = () => {
     const [paySlips, setPaySlips] = useState([]);
 
     const empId = user?.employee_id || user?.employeeId;
+
+    // Use allEmployees (global list) to find current user to bypass project filtering issues
+    const employeeData = allEmployees?.find(e => e.id === user?.id || e.employeeId === empId) || 
+                       employees?.find(e => e.id === user?.id) || 
+                       user;
 
     React.useEffect(() => {
         if (empId) {
@@ -61,8 +66,6 @@ const UserDashboard = () => {
             alert('Failed to download pay slip. Make sure a pay slip has been generated for you.');
         }
     };
-
-    const employeeData = employees?.find(e => e.id === user?.id) || user;
     const userId = (user?.id || '').toLowerCase().trim();
     const myTasks = tasks.filter(t => {
         const assignedId = (t.assignedTo || '').toLowerCase().trim();
