@@ -368,11 +368,20 @@ async def export_attendance_to_excel():
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Attendance Report')
             
-            # Auto-adjust columns width (aesthetic touch)
+            # 4. Auto-adjust columns width for better readability
             worksheet = writer.sheets['Attendance Report']
             for idx, col in enumerate(df.columns):
-                max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-                worksheet.column_dimensions[chr(65 + idx)].width = min(max_len, 50)
+                # Calculate max length of content in this column
+                content_max = df[col].astype(str).map(len).max() if not df[col].empty else 0
+                max_len = max(content_max, len(col)) + 5 # Extra padding
+                
+                # Column A is index 0, B is 1, etc.
+                col_letter = chr(65 + idx)
+                worksheet.column_dimensions[col_letter].width = min(max_len, 60)
+                
+                # Special case: Make sure Date column is wide enough for Excel dates
+                if "Date" in col:
+                    worksheet.column_dimensions[col_letter].width = 20
 
         output.seek(0)
         return output
