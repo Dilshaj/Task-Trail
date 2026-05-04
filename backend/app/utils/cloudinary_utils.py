@@ -7,15 +7,20 @@ logger = logging.getLogger(__name__)
 
 # 🔒 Centralized Cloudinary Config
 # Strictly using Environment Variables from centralized settings
-cloudinary.config(
-    cloud_name=str(settings.CLOUDINARY_CLOUD_NAME).strip(),
-    api_key=str(settings.CLOUDINARY_API_KEY).strip(),
-    api_secret=str(settings.CLOUDINARY_API_SECRET).strip(),
-    secure=True
-)
+if settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY:
+    cloudinary.config(
+        cloud_name=str(settings.CLOUDINARY_CLOUD_NAME).strip(),
+        api_key=str(settings.CLOUDINARY_API_KEY).strip(),
+        api_secret=str(settings.CLOUDINARY_API_SECRET or "").strip(),
+        secure=True
+    )
+    logger.info(f"✅ Cloudinary configured for: {settings.CLOUDINARY_CLOUD_NAME}")
+else:
+    logger.warning("⚠️ Cloudinary credentials missing. Name-based avatars will be used.")
 
 # Debug (Sensitive info masked)
-print(f"Cloudinary: {settings.CLOUDINARY_CLOUD_NAME} | Key: {settings.CLOUDINARY_API_KEY[:4]}... | Secret: {'Yes' if settings.CLOUDINARY_API_SECRET else 'No'}")
+key_preview = str(settings.CLOUDINARY_API_KEY)[:4] if settings.CLOUDINARY_API_KEY else "None"
+print(f"Cloudinary: {settings.CLOUDINARY_CLOUD_NAME} | Key: {key_preview}... | Secret: {'Yes' if settings.CLOUDINARY_API_SECRET else 'No'}")
 
 # 🌐 RELIABLE PLACEHOLDER (UI-Avatars)
 # Note: Handled by format_employee in employee_service.py using the REAL name.
