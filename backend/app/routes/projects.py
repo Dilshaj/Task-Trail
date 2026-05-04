@@ -3,7 +3,7 @@ from typing import List
 import logging
 from app.schemas.schemas import ProjectResponse, ProjectCreate, ProjectUpdate
 from app.services import project_service
-from app.utils.cloudinary_utils import upload_image as upload_to_cloudinary, DEFAULT_IMAGE
+from app.utils.cloudinary_utils import upload_image as upload_to_cloudinary
 
 logger = logging.getLogger(__name__)
 

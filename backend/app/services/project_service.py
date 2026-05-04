@@ -1,6 +1,6 @@
 from app.db.mongo import db
 from app.schemas.schemas import ProjectCreate, ProjectUpdate
-from app.utils.cloudinary_utils import upload_base64_image, DEFAULT_IMAGE
+from app.utils.cloudinary_utils import upload_base64_image
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -17,8 +17,11 @@ def format_project(project):
     is_broken = not img_url or img_url == "" or img_url == "undefined" or img_url == "null" or "/uploads/" in str(img_url)
     is_ghost = "dzvk36pqu" in str(img_url).lower()
     
-    must_replace = is_broken or is_ghost
-    final_img = DEFAULT_IMAGE if must_replace else img_url
+    if is_broken or is_ghost:
+        name = project.get("name", "Project")
+        final_img = f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&background=0D8ABC&color=fff&bold=true"
+    else:
+        final_img = img_url
 
     formatted = {
         "id": str(project.get("_id")),
@@ -46,7 +49,7 @@ async def create_project(project: ProjectCreate):
     try:
         project_data = {
             "name": project.name,
-            "image": project.image or DEFAULT_IMAGE,
+            "image": project.image or None,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
