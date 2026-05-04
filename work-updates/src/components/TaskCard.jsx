@@ -3,7 +3,7 @@ import { Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDate } from '../utils/helpers';
 
-const TaskCard = ({ task, onStatusChange, isUser }) => {
+const TaskCard = ({ task, onStatusChange, isUser, employee }) => {
     const statusColors = {
         'Pending': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-900/50',
         'In Progress': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50',
@@ -16,14 +16,24 @@ const TaskCard = ({ task, onStatusChange, isUser }) => {
         'Low': 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40',
     };
 
+    const displayProgress = task.timeline === 'daily' 
+        ? (employee?.dailyProgress || 0) 
+        : task.timeline === 'weekly' 
+            ? (employee?.weeklyProgress || 0) 
+            : (task.progress || 0);
+
 
     return (
         <div className="flex flex-col rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-5 shadow-sm transition-all duration-300 hover:shadow-xl dark:hover:shadow-indigo-900/20 hover:-translate-y-1 group">
             <div className="flex items-start justify-between gap-4 mb-3">
                 <h4 className="font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{task.title}</h4>
-                <span className={clsx("px-2.5 py-0.5 rounded-full text-xs font-medium border", statusColors[task.status])}>
-                    {task.status}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                    <span className={clsx("px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap", 
+                        displayProgress >= 100 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400"
+                    )}>
+                        {displayProgress}%
+                    </span>
+                </div>
             </div>
 
             <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4 flex-1">{task.description}</p>

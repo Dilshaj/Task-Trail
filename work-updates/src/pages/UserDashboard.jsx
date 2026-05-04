@@ -471,6 +471,7 @@ const UserDashboard = () => {
                             <TaskCard
                                 task={task}
                                 isUser={true}
+                                employee={employeeData}
                                 onStatusChange={handleStatusChange}
                             />
                         </div>

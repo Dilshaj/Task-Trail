@@ -182,8 +182,26 @@ const ProjectDashboard = () => {
                             <div key={task.id} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                                 <div className="flex items-center justify-between mb-2">
                                     <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{task.title}</h4>
-                                    <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 px-2 py-0.5 rounded">
-                                        {task.progress || 0}%
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors duration-300 ${
+                                        (() => {
+                                            const displayProgress = task.timeline === 'daily' 
+                                                ? (assignedTo?.dailyProgress || 0) 
+                                                : task.timeline === 'weekly' 
+                                                    ? (assignedTo?.weeklyProgress || 0) 
+                                                    : (task.progress || 0);
+                                            return displayProgress >= 100
+                                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
+                                                : 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30';
+                                        })()
+                                    }`}>
+                                        {(() => {
+                                            const displayProgress = task.timeline === 'daily' 
+                                                ? (assignedTo?.dailyProgress || 0) 
+                                                : task.timeline === 'weekly' 
+                                                    ? (assignedTo?.weeklyProgress || 0) 
+                                                    : (task.progress || 0);
+                                            return `${displayProgress}%`;
+                                        })()}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
