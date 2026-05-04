@@ -71,7 +71,12 @@ async def recalculate_employee_progress(employee_id: str):
             # Calculate average progress (treat "Completed" status as 100%)
             total_progress = 0.0
             for t in tasks:
-                prog = float(t.get("progress", 0.0))
+                raw_prog = t.get("progress", 0.0)
+                try:
+                    prog = float(raw_prog)
+                except (ValueError, TypeError):
+                    prog = 0.0
+                    
                 if t.get("status") == "Completed":
                     prog = 100.0
                 total_progress += prog
@@ -122,10 +127,13 @@ async def create_task(task_data: dict):
         task_id = result.inserted_id
         logger.info(f"✅ Task inserted with ID: {task_id}")
         
-        # 🔥 Trigger Auto-Sync
+        # 🔥 Trigger Auto-Sync (Wrapped in try-except so it doesn't block task creation)
         if db_data["assigned_to"]:
-            logger.info(f"🔄 Triggering progress sync for employee: {db_data['assigned_to']}")
-            await recalculate_employee_progress(db_data["assigned_to"])
+            try:
+                logger.info(f"🔄 Triggering progress sync for employee: {db_data['assigned_to']}")
+                await recalculate_employee_progress(db_data["assigned_to"])
+            except Exception as sync_err:
+                logger.error(f"⚠️ Auto-sync failed but task was created: {sync_err}")
             
         db_data["_id"] = task_id
         return format_task(db_data)
