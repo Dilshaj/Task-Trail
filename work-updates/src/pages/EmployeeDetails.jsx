@@ -158,12 +158,26 @@ const EmployeeDetails = () => {
                                         </h4>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{task.description}</p>
                                     </div>
-                                    <span className={`text-xs font-medium px-2 py-1 rounded-md ${
-                                        task.status === 'Completed' 
-                                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' 
-                                            : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+                                    <span className={`text-xs font-bold px-2 py-1 rounded-md transition-colors duration-300 ${
+                                        (() => {
+                                            const displayProgress = task.timeline === 'daily' 
+                                                ? (employee.dailyProgress || 0) 
+                                                : task.timeline === 'weekly' 
+                                                    ? (employee.weeklyProgress || 0) 
+                                                    : (task.progress || 0);
+                                            return displayProgress >= 100
+                                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
+                                                : 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30';
+                                        })()
                                     }`}>
-                                        {task.status}
+                                        {(() => {
+                                            const displayProgress = task.timeline === 'daily' 
+                                                ? (employee.dailyProgress || 0) 
+                                                : task.timeline === 'weekly' 
+                                                    ? (employee.weeklyProgress || 0) 
+                                                    : (task.progress || 0);
+                                            return `${displayProgress}%`;
+                                        })()}
                                     </span>
                                 </div>
                             )) : (
@@ -179,7 +193,7 @@ const EmployeeDetails = () => {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">Daily Tasks</h4>
                                 <div className="grid grid-cols-1 gap-4">
-                                    {dailyTasks.map(task => <TaskCard key={task.id} task={task} />)}
+                                    {dailyTasks.map(task => <TaskCard key={task.id} task={task} employee={employee} />)}
                                     {dailyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No daily tasks.</p>}
                                 </div>
                             </div>
@@ -187,7 +201,7 @@ const EmployeeDetails = () => {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">Weekly Tasks</h4>
                                 <div className="grid grid-cols-1 gap-4">
-                                    {weeklyTasks.map(task => <TaskCard key={task.id} task={task} />)}
+                                    {weeklyTasks.map(task => <TaskCard key={task.id} task={task} employee={employee} />)}
                                     {weeklyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No weekly tasks.</p>}
                                 </div>
                             </div>
