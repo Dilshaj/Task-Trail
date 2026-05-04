@@ -50,7 +50,7 @@ def upload_base64_image(base64_string, folder="projects"):
     """
     try:
         if not base64_string or "base64" not in str(base64_string):
-            return DEFAULT_IMAGE
+            return None
             
         upload_result = cloudinary.uploader.upload(base64_string, folder=folder)
         url = upload_result.get("secure_url")
