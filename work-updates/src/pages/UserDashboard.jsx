@@ -9,11 +9,13 @@ import { CheckCircle2, Clock, ListTodo, LogIn, LogOut, FileText, Download, Shiel
 import { calculateActiveHours } from '../utils/helpers';
 import { downloadOfferLetter } from '../services/offerLetterService';
 import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipService';
+import { useLeaves } from '../context/LeaveContext';
 
 const UserDashboard = () => {
     const { user } = useAuth();
     const { employees, allEmployees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
     const { activeLog, loading, locationStatus, handleCheckIn, handleCheckOut } = useAttendance();
+    const { leaves } = useLeaves();
     const navigate = useNavigate();
     const [showSlipHistory, setShowSlipHistory] = useState(false);
     const [showDateSelector, setShowDateSelector] = useState(false);
@@ -87,6 +89,9 @@ const UserDashboard = () => {
 
     const completedCount = myTasks.filter(t => t.status === 'Completed').length;
     const pendingCount = myTasks.filter(t => t.status !== 'Completed').length;
+
+    const myLeaves = leaves.filter(l => l.userId === empId);
+    const latestLeave = myLeaves.length > 0 ? myLeaves[0] : null;
 
     return (
         <Layout>
@@ -287,6 +292,29 @@ const UserDashboard = () => {
                                 style={{ width: `${employeeData?.weeklyProgress || 0}%` }}
                             ></div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex items-center justify-between animate-fade-in-up stagger-7 group cursor-pointer" onClick={() => navigate('/leaves')}>
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest Leave Status</p>
+                        {latestLeave ? (
+                            <div className="mt-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{latestLeave.type}</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                        latestLeave.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                        latestLeave.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                                        'bg-amber-50 text-amber-600 border-amber-100'
+                                    }`}>
+                                        {latestLeave.status}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 line-clamp-1">{latestLeave.reason}</p>
+                            </div>
+                        ) : (
+                            <div className="mt-2 text-slate-400 text-xs italic">No leave requests found</div>
+                        )}
                     </div>
                 </div>
             </div>

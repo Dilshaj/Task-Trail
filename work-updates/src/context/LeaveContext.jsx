@@ -28,14 +28,14 @@ export const LeaveProvider = ({ children }) => {
 
             const mappedData = data.map(l => ({
                 id: l.id,
-                userId: (l.employee_id || l.employeeId),
-                userName: (l.userName || l.employee_id || l.employeeId),
-                type: (l.leave_type || l.type),
-                startDate: (l.from_date || l.startDate),
-                endDate: (l.to_date || l.endDate),
+                userId: (l.employeeId || l.employee_id),
+                userName: (l.userName || l.employeeId || l.employee_id),
+                type: (l.leaveType || l.leave_type || l.type),
+                startDate: (l.fromDate || l.from_date || l.startDate),
+                endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
-                appliedAt: (l.created_at || l.createdAt)
+                appliedAt: (l.createdAt || l.created_at)
             }));
 
             setLeaves(mappedData);
@@ -70,14 +70,14 @@ export const LeaveProvider = ({ children }) => {
 
             const mappedData = data.map(l => ({
                 id: l.id,
-                userId: (l.employee_id || l.employeeId),
-                userName: (l.userName || l.employee_id || l.employeeId),
-                type: (l.leave_type || l.type),
-                startDate: (l.from_date || l.startDate),
-                endDate: (l.to_date || l.endDate),
+                userId: (l.employeeId || l.employee_id),
+                userName: (l.userName || l.employeeId || l.employee_id),
+                type: (l.leaveType || l.leave_type || l.type),
+                startDate: (l.fromDate || l.from_date || l.startDate),
+                endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
-                appliedAt: (l.created_at || l.createdAt)
+                appliedAt: (l.createdAt || l.created_at)
             }));
             setLeaves(mappedData);
         } catch (error) {

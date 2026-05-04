@@ -16,7 +16,8 @@ const LeavePanel = ({ isAdmin }) => {
         reason: ''
     });
 
-    const userLeaves = leaves.filter(l => l.userId === user?.id);
+    const empId = user?.employee_id || user?.employeeId;
+    const userLeaves = leaves.filter(l => l.userId === empId);
     const displayLeaves = isAdmin ? leaves : userLeaves;
 
     const handleSubmit = (e) => {
