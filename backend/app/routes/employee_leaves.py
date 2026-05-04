@@ -61,7 +61,9 @@ async def apply_leave(leave_data: LeaveRequestCreate):
         return await format_leave(new_leave)
     except Exception as e:
         logger.error(f"Error applying for leave: {e}")
-        raise HTTPException(status_code=500, detail="Failed to apply for leave")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to apply for leave: {str(e)}")
 
 @router.get("/my-leaves/{employee_id}", response_model=List[LeaveRequestResponse])
 async def get_user_leaves(employee_id: str):

@@ -92,7 +92,8 @@ async def update_profile(
     except Exception as e:
         logger.error(f"🔥 PROFILE UPDATE CRASH: {str(e)}")
         import traceback
-        logger.error(traceback.format_exc())
+        error_trace = traceback.format_exc()
+        logger.error(error_trace)
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
