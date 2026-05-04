@@ -66,8 +66,13 @@ app.include_router(employee_leaves.router, prefix="/api", tags=["Leaves"])
 
 # --- Health
 @app.get("/api/health")
-def health_check():
-    return {"status": "healthy", "version": "v1.1.0-cloudinary-only"}
+async def health_check():
+    db_status = "Connected" if db.db is not None else "Disconnected"
+    return {
+        "status": "healthy", 
+        "version": "v1.1.0-cloudinary-only",
+        "database": db_status
+    }
 
 # --- React SPA Frontend (MUST BE LAST)
 FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "work-updates", "dist")
