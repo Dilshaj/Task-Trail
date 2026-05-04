@@ -133,9 +133,21 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None)
         
         cursor = db.employees.find(query).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)
-        return [format_employee(e) for e in raw_employees]
+        
+        # 🛡️ Filter out None values and format safely
+        formatted_list = []
+        for e in raw_employees:
+            if e:
+                try:
+                    formatted_list.append(format_employee(e))
+                except Exception as format_err:
+                    logger.error(f"Error formatting employee {e.get('_id')}: {format_err}")
+        
+        return formatted_list
     except Exception as e:
         logger.error(f"🔥 GET EMPLOYEES ERROR: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return []
 
 async def get_employee_by_id(user_id: str):
