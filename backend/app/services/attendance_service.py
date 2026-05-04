@@ -119,9 +119,8 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             query["project_id"] = {"$in": pids}
             logger.info(f"[ATTENDANCE] Filtering logs strictly for project_id: {project_id}")
         else:
-            # Enforce isolation: If no project_id, return unassigned logs only
-            query["project_id"] = {"$in": [None, "", "null", "undefined"]}
-            logger.info("[ATTENDANCE] No project_id provided. Returning unassigned logs only.")
+            # Global Admin View: Return ALL logs if no project_id is specified
+            logger.info("[ATTENDANCE] No project_id provided. Returning ALL logs for Admin view.")
 
         # 1. Fetch logs
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
