@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from app.schemas.schemas import LoginRequest
+from app.schemas.schemas import LoginRequest, ChangePasswordRequest
 from app.services import auth_service
 from app.db.mongo import db
 import os
 import logging
 import traceback
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -137,3 +138,37 @@ async def refresh_token(refresh_token: str):
     )
 
     return {"token": new_access_token}
+
+@router.post("/change-password")
+async def change_password(request: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
+    """
+    Securely update the user's password.
+    """
+    if db.db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    
+    # 1. Verify current password
+    stored_hash = current_user.get("password_hash") or current_user.get("password")
+    if not auth_service.verify_password(request.current_password, stored_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+    
+    # 2. Hash new password
+    new_hash = auth_service.get_password_hash(request.new_password)
+    
+    # 3. Update in DB
+    try:
+        await db.employees.update_one(
+            {"employee_id": current_user["employee_id"]},
+            {"$set": {
+                "password_hash": new_hash,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        return {"message": "Password updated successfully"}
+    except Exception as e:
+        logger.error(f"PASSWORD UPDATE FAILED: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update password in database")
+

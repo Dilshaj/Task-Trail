@@ -15,11 +15,14 @@ export const login = async (email, employeeId, password) => {
     }
 };
 
-export const changePassword = async (token, newPassword) => {
+export const changePassword = async (currentPassword, newPassword) => {
     try {
         const response = await api.post(
             `${API_URL}/change-password`,
-            { newPassword }
+            { 
+                current_password: currentPassword, 
+                new_password: newPassword 
+            }
         );
         return response.data;
     } catch (error) {

@@ -96,11 +96,9 @@ async def get_all_leaves(project_id: Optional[str] = Query(None)):
             emp_ids = [e.get("employee_id") for e in project_employees]
             query["employee_id"] = {"$in": emp_ids}
         else:
-            # Enforce isolation: return unassigned leaves only if no project_id
-            cursor_emp = db.employees.find({"project_id": {"$in": [None, "", "null", "undefined"]}})
-            unassigned_employees = await cursor_emp.to_list(length=1000)
-            emp_ids = [e.get("employee_id") for e in unassigned_employees]
-            query["employee_id"] = {"$in": emp_ids}
+            # Global Admin View: return all leaves if no specific project_id is requested
+            logger.info("[ISOLATION] No project_id provided for leaves. Returning all leaves.")
+            pass # No query filter on employee_id means all leaves are returned
             
         cursor = db.leaves.find(query).sort("created_at", -1)
         leaves = await cursor.to_list(length=500)

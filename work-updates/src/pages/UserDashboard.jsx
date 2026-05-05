@@ -299,10 +299,13 @@ const UserDashboard = () => {
                     <div className="flex-1">
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest Leave Status</p>
                         {latestLeave ? (
-                            <div className="mt-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{latestLeave.type}</span>
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            <div className="mt-2 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase">Leave Type</span>
+                                        <span className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{latestLeave.type}</span>
+                                    </div>
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                                         latestLeave.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                                         latestLeave.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
                                         'bg-amber-50 text-amber-600 border-amber-100'
@@ -310,7 +313,13 @@ const UserDashboard = () => {
                                         {latestLeave.status}
                                     </span>
                                 </div>
-                                <p className="text-[10px] text-slate-500 line-clamp-1">{latestLeave.reason}</p>
+                                <div className="flex flex-col border-t border-slate-50 dark:border-slate-700/50 pt-2">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Period</span>
+                                    <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                        {latestLeave.startDate ? new Date(latestLeave.startDate).toLocaleDateString() : 'N/A'} → {latestLeave.endDate ? new Date(latestLeave.endDate).toLocaleDateString() : 'N/A'}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 italic line-clamp-1">"{latestLeave.reason}"</p>
                             </div>
                         ) : (
                             <div className="mt-2 text-slate-400 text-xs italic">No leave requests found</div>

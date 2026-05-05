@@ -8,6 +8,10 @@ class LoginRequest(BaseModel):
     employee_id: Optional[str] = None
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class Token(BaseModel):
     token: str
     token_type: str = "bearer"
