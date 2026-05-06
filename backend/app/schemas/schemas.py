@@ -128,6 +128,7 @@ class LeaveRequestCreate(BaseModel):
     from_date: str
     to_date: str
     reason: str
+    project_id: Optional[str] = None
 
 class LeaveRequestResponse(BaseModel):
     id: Optional[str] = None
@@ -138,6 +139,7 @@ class LeaveRequestResponse(BaseModel):
     toDate: str = ""
     reason: Optional[str] = None
     status: Optional[str] = "Pending"
+    projectId: Optional[str] = None
     createdAt: Optional[datetime] = None
 
 class OfferLetterCreate(BaseModel):

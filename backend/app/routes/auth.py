@@ -44,7 +44,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         
         # Standardize role to Role enum
         raw_role = str(user.get("role", "EMPLOYEE")).upper()
-        if raw_role in ["ADMIN", "SUPER_ADMIN"]: 
+        if raw_role in ["ADMIN", "SUPER_ADMIN", "MANAGEMENT"]: 
             user["role"] = Role.SUPER_ADMIN
         elif raw_role == "TEAM_LEAD":
             user["role"] = Role.TEAM_LEAD
@@ -60,10 +60,13 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         logger.error(f"AUTH DEPENDENCY ERROR: {str(e)}")
         raise credentials_exception
 
+# --- RBAC UTILITIES ---
+
 def require_role(allowed_roles: List[Role]):
     async def role_checker(current_user: dict = Depends(get_current_user)):
-        if current_user["role"] not in allowed_roles:
-            logger.warning(f"🚫 RBAC REJECTION: User {current_user['employee_id']} (Role: {current_user['role']}) attempted to access restricted resource. Required: {allowed_roles}")
+        user_role = current_user.get("role")
+        if user_role not in allowed_roles:
+            logger.warning(f"🚫 RBAC REJECTION: User {current_user.get('employee_id')} (Role: {user_role}) attempted to access restricted resource. Required: {allowed_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Forbidden: You do not have sufficient permissions."
@@ -73,40 +76,36 @@ def require_role(allowed_roles: List[Role]):
 
 async def get_project_filter(current_user: dict = Depends(get_current_user)):
     """
-    Returns a project_id or None based on user role.
-    Strictly enforces that TEAM_LEAD can only see their assigned project.
+    Returns a project_id or None based on user role for data isolation.
     """
-    if current_user["role"] == Role.SUPER_ADMIN:
-        return None  # No restriction for Super Admin
+    role = current_user.get("role")
+    if role == Role.SUPER_ADMIN:
+        return None
         
-    if current_user["role"] == Role.TEAM_LEAD:
-        project_id = current_user.get("project_id")
-        if not project_id:
-            logger.error(f"❌ TEAM_LEAD ERROR: User {current_user['employee_id']} has no project_id assigned.")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Forbidden: Team Lead has no project assigned."
-            )
-        return str(project_id)
-        
-    # Employees also restricted by project_id for most lookups
-    return str(current_user.get("project_id", ""))
+    p_id = current_user.get("project_id")
+    if role == Role.TEAM_LEAD and not p_id:
+        logger.error(f"❌ TEAM_LEAD ERROR: User {current_user['employee_id']} has no project_id assigned.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Team Lead has no project assigned."
+        )
+    return str(p_id) if p_id else ""
 
 def verify_project_access(user: dict, project_id: str):
     """
-    🔒 RBAC Enforcement: Ensures TEAM_LEAD or EMPLOYEE can only access their assigned project.
+    🔒 Explicit project isolation check.
     """
-    if user["role"] == Role.SUPER_ADMIN:
-        return # Full access
+    if user.get("role") == Role.SUPER_ADMIN:
+        return
         
-    user_project_id = str(user.get("project_id") or "")
-    target_project_id = str(project_id or "")
+    user_project = str(user.get("project_id") or "")
+    target_project = str(project_id or "")
     
-    if user_project_id != target_project_id:
-        logger.warning(f"🚫 ISOLATION REJECTION: User {user['employee_id']} (Project: {user_project_id}) attempted to access Project: {target_project_id}")
+    if user_project != target_project:
+        logger.warning(f"🚫 ISOLATION REJECTION: User {user['employee_id']} (Project: {user_project}) attempted to access Project: {target_project}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access Denied: You are restricted to project {user_project_id}"
+            detail="Access Denied: Resource belongs to another project."
         )
 
 @router.post("/login")
@@ -133,7 +132,7 @@ async def login(request: LoginRequest):
 
         # Standardize role for Token
         raw_role = str(user.get("role", "EMPLOYEE")).upper()
-        if raw_role in ["ADMIN", "SUPER_ADMIN"]:
+        if raw_role in ["ADMIN", "SUPER_ADMIN", "MANAGEMENT"]:
             final_role = Role.SUPER_ADMIN
         elif raw_role == "TEAM_LEAD":
             final_role = Role.TEAM_LEAD
@@ -208,7 +207,7 @@ async def refresh_token(refresh_token: str):
 
     # Generate new access token with full RBAC data
     raw_role = str(user.get("role", "EMPLOYEE")).upper()
-    if raw_role in ["ADMIN", "SUPER_ADMIN"]:
+    if raw_role in ["ADMIN", "SUPER_ADMIN", "MANAGEMENT"]:
         final_role = Role.SUPER_ADMIN
     elif raw_role == "TEAM_LEAD":
         final_role = Role.TEAM_LEAD
@@ -257,39 +256,5 @@ async def change_password(request: ChangePasswordRequest, current_user: dict = D
         logger.error(f"PASSWORD UPDATE FAILED: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update password in database")
 
-# --- RBAC UTILITIES ---
-
-def get_project_filter(current_user: dict = Depends(get_current_user)):
-    """
-    Dependency to return project isolation filter.
-    SUPER_ADMIN -> None (no filter)
-    TEAM_LEAD -> project_id (enforce isolation)
-    """
-    role = str(current_user.get("role", "")).upper()
-    p_id = current_user.get("project_id")
-
-    if role == "SUPER_ADMIN" or role == "ADMIN":
-        logger.info(f"🔓 [RBAC] User: {current_user.get('employee_id')} is SUPER_ADMIN. NO FILTER APPLIED.")
-        return None
-    
-    logger.info(f"🔒 [RBAC] Enforcing Project Filter: {p_id} for User: {current_user.get('employee_id')} (Role: {role})")
-    return p_id
-
-def verify_project_access(user: dict, resource_project_id: str):
-    """
-    Explicitly block access if user attempts to touch a resource outside their project.
-    """
-    if user["role"] == Role.SUPER_ADMIN:
-        return True
-    
-    user_project = str(user.get("project_id") or "")
-    resource_project = str(resource_project_id or "")
-    
-    if user_project != resource_project:
-        logger.warning(f"🚨 [RBAC REJECTION] User {user.get('employee_id')} (Project: {user_project}) tried to access Resource (Project: {resource_project})")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: Resource belongs to another project."
-        )
-    return True
+# End of file
 

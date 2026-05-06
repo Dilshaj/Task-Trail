@@ -17,8 +17,10 @@ export const LeaveProvider = ({ children }) => {
             if (!user) return;
 
             let data = [];
-            const isAdmin = user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'SUPER_ADMIN';
-            if (isAdmin) {
+            const role = user.role?.toUpperCase();
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            
+            if (canManage) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 const empId = user.employee_id || user.employeeId;
@@ -36,6 +38,7 @@ export const LeaveProvider = ({ children }) => {
                 endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
+                projectId: l.projectId || l.project_id,
                 appliedAt: (l.createdAt || l.created_at)
             }));
 
@@ -63,8 +66,10 @@ export const LeaveProvider = ({ children }) => {
 
             // 2. Fetch fresh data
             let data = [];
-            const isAdmin = user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'SUPER_ADMIN';
-            if (isAdmin) {
+            const role = user.role?.toUpperCase();
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            
+            if (canManage) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 data = await getMyLeaves(empId);
@@ -79,6 +84,7 @@ export const LeaveProvider = ({ children }) => {
                 endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
+                projectId: l.projectId || l.project_id,
                 appliedAt: (l.createdAt || l.created_at)
             }));
             setLeaves(mappedData);

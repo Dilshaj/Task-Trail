@@ -161,18 +161,18 @@ const Login = () => {
                 ) : (
                     <form onSubmit={handleLogin} className="space-y-6">
                         {loginMode === 'admin' && (
-                            <div className="grid grid-cols-2 gap-3 mb-2">
+                            <div className="grid grid-cols-2 gap-3 mb-2 animate-fade-in">
                                 <button
                                     type="button"
                                     onClick={() => { setAdminType('team_lead'); setError(''); }}
-                                    className={`py-2.5 rounded-xl text-sm font-bold border transition-all duration-300 ${adminType === 'team_lead' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                                    className={`py-3 rounded-xl text-sm font-bold border-2 transition-all duration-300 ${adminType === 'team_lead' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'border-slate-100 dark:border-slate-800 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30'}`}
                                 >
                                     Team Lead
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setAdminType('management'); setError(''); }}
-                                    className={`py-2.5 rounded-xl text-sm font-bold border transition-all duration-300 ${adminType === 'management' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                                    className={`py-3 rounded-xl text-sm font-bold border-2 transition-all duration-300 ${adminType === 'management' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'border-slate-100 dark:border-slate-800 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30'}`}
                                 >
                                     Management
                                 </button>
@@ -216,7 +216,7 @@ const Login = () => {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between ml-1">
                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
-                                <button type="button" className="text-xs font-semibold text-primary hover:text-primary/80 transition">Forgot Password?</button>
+                                <button type="button" className="text-xs font-bold text-slate-500 hover:text-primary transition-colors">Forgot Password?</button>
                             </div>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-primary" />
@@ -249,30 +249,34 @@ const Login = () => {
                     </form>
                 )}
 
-                {!showChangePassword && (
-                    <div className="mt-10 pt-8 border-t border-slate-200/50 dark:border-slate-800 text-center">
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Don't have an account? <button className="font-bold text-primary hover:text-primary/80 transition">Sign Up</button>
+                <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-800/50 space-y-6">
+                    <div className="text-center">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Don't have an account? <button className="font-bold text-slate-700 dark:text-white hover:text-primary transition-colors">Sign Up</button>
                         </p>
-
-                        <div className="grid grid-cols-2 gap-4 mt-8">
-                            <button
-                                type="button"
-                                onClick={() => { setLoginMode('admin'); setError(''); setPassword(''); }}
-                                className={`flex flex-col items-center gap-1 rounded-2xl border ${loginMode === 'admin' ? 'border-primary bg-primary/5 dark:bg-primary/20' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50'} py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300`}
-                            >
-                                <span>Admin Login</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setLoginMode('user'); setError(''); setPassword(''); }}
-                                className={`flex flex-col items-center gap-1 rounded-2xl border ${loginMode === 'user' ? 'border-primary bg-primary/5 dark:bg-primary/20' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50'} py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300`}
-                            >
-                                <span>User Login</span>
-                            </button>
-                        </div>
                     </div>
-                )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => { setLoginMode('admin'); setError(''); }}
+                            className={`py-3.5 rounded-2xl text-sm font-bold border-2 transition-all duration-300 hover:shadow-md active:scale-95 ${loginMode === 'admin' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                        >
+                            Admin Login
+                        </button>
+                        <button
+                            onClick={() => { setLoginMode('user'); setError(''); }}
+                            className={`py-3.5 rounded-2xl text-sm font-bold border-2 transition-all duration-300 hover:shadow-md active:scale-95 ${loginMode === 'user' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                        >
+                            User Login
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                            🛡️ Authorized Personnel Only
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );
