@@ -113,7 +113,7 @@ const Login = () => {
                 </button>
             </div>
 
-            <div className="w-full max-w-md glass-card rounded-2xl p-8 relative z-10 animate-fade-in-up border border-white/60 shadow-xl">
+            <div className="w-full max-w-[520px] glass-card rounded-[40px] p-14 relative z-10 animate-fade-in-up border border-white/60 shadow-2xl">
 
 
                 <div className="space-y-2 mb-8">
@@ -159,7 +159,7 @@ const Login = () => {
                         </button>
                     </form>
                 ) : (
-                    <form onSubmit={handleLogin} className="space-y-6">
+                    <form onSubmit={handleLogin} className="space-y-8">
                         {loginMode === 'admin' && (
                             <div className="grid grid-cols-2 gap-3 mb-2 animate-fade-in">
                                 <button
@@ -191,7 +191,7 @@ const Login = () => {
                                         onChange={(e) => setEmail(e.target.value)}
                                         disabled={isLoading}
                                         className="w-full rounded-[14px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-4 focus:ring-blue-500/10 focus:border-[#5B8DEF] dark:text-white placeholder:text-slate-400"
-                                        placeholder="dilshajceo@dilshajinfotech.tech"
+                                        placeholder="Enter Email Address"
                                     />
                                 </div>
                             </div>
@@ -249,12 +249,7 @@ const Login = () => {
                     </form>
                 )}
 
-                <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-800/50 space-y-6">
-                    <div className="text-center">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Don't have an account? <button className="font-bold text-slate-700 dark:text-white hover:text-primary transition-colors">Sign Up</button>
-                        </p>
-                    </div>
+                <div className="mt-10 pt-8 border-t border-slate-200/50 dark:border-slate-800/50 space-y-8">
 
                     <div className="grid grid-cols-2 gap-4">
                         <button

@@ -5,7 +5,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
-        const savedUser = sessionStorage.getItem('user_v2');
+        const savedUser = localStorage.getItem('user_v2');
         return savedUser ? JSON.parse(savedUser) : null;
     });
 
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
             };
             const normalized = normalizeAvatar(userData);
             setUser(normalized);
-            sessionStorage.setItem('user_v2', JSON.stringify(normalized));
+            localStorage.setItem('user_v2', JSON.stringify(normalized));
             return normalized;
         } catch (error) {
             throw error;
@@ -29,18 +29,18 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         setUser(null);
-        sessionStorage.removeItem('user_v2');
+        localStorage.removeItem('user_v2');
     };
 
     const updateUser = (updatedData) => {
         setUser(prev => {
             const newUser = { ...prev, ...updatedData };
-            sessionStorage.setItem('user_v2', JSON.stringify(newUser));
+            localStorage.setItem('user_v2', JSON.stringify(newUser));
             return newUser;
         });
     };
 
-    // 🔄 Keep state in sync with sessionStorage (for token refreshes in api.js)
+    // 🔄 Keep state in sync with localStorage
     useEffect(() => {
         const syncAuth = (e) => {
             if (e.key === 'user_v2') {
@@ -50,9 +50,9 @@ export const AuthProvider = ({ children }) => {
         };
         window.addEventListener('storage', syncAuth);
         
-        // Polling fallback for the SAME tab (storage event only fires on other tabs)
+        // Polling fallback for the SAME tab
         const interval = setInterval(() => {
-            const saved = sessionStorage.getItem('user_v2');
+            const saved = localStorage.getItem('user_v2');
             const parsed = saved ? JSON.parse(saved) : null;
             if (JSON.stringify(parsed?.token) !== JSON.stringify(user?.token)) {
                 setUser(parsed);

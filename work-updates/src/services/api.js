@@ -11,7 +11,7 @@ const api = axios.create({
 // 🔐 Attach token
 api.interceptors.request.use(
     (config) => {
-        const savedUser = sessionStorage.getItem('user_v2');
+        const savedUser = localStorage.getItem('user_v2');
         if (savedUser) {
             const { token } = JSON.parse(savedUser);
             if (token) {
@@ -33,7 +33,7 @@ api.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
-            const savedUser = sessionStorage.getItem('user_v2');
+            const savedUser = localStorage.getItem('user_v2');
             if (savedUser) {
                 const userData = JSON.parse(savedUser);
                 const { refreshToken } = userData;
@@ -42,7 +42,6 @@ api.interceptors.response.use(
                     try {
                         console.log("🔄 [AUTH] Access token expired. Attempting refresh...");
                         // Call refresh endpoint
-                        // We use axios directly to avoid interceptor loop if refresh fails
                         const res = await axios.post(`${API_BASE_URL}/auth/refresh?refresh_token=${refreshToken}`);
 
                         if (res.status === 200) {
@@ -50,7 +49,7 @@ api.interceptors.response.use(
 
                             // Update storage
                             const updatedUser = { ...userData, token: newToken };
-                            sessionStorage.setItem('user_v2', JSON.stringify(updatedUser));
+                            localStorage.setItem('user_v2', JSON.stringify(updatedUser));
 
                             // Update original request and retry
                             originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -58,7 +57,7 @@ api.interceptors.response.use(
                         }
                     } catch (refreshError) {
                         console.error("❌ [AUTH] Refresh token failed/expired. Logging out.");
-                        sessionStorage.removeItem('user_v2');
+                        localStorage.removeItem('user_v2');
                         window.location.href = "/";
                         return Promise.reject(refreshError);
                     }
