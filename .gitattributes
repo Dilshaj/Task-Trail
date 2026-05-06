@@ -1,0 +1,4 @@
+# Treat all files in models/ as binary to prevent CRLF corruption
+work-updates/public/models/* binary
+*.weights binary
+*-shard* binary
