@@ -111,8 +111,15 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
         query = {}
         
         if employee_id:
-            query["employee_id"] = employee_id
-            logger.info(f"[ATTENDANCE] Filtering logs for specific employee_id: {employee_id}")
+            emp_id_clean = str(employee_id).strip()
+            # Support both string and integer IDs just in case
+            id_variants = [emp_id_clean]
+            try:
+                id_variants.append(int(emp_id_clean))
+            except:
+                pass
+            query["employee_id"] = {"$in": id_variants}
+            logger.info(f"[ATTENDANCE] Querying with variants: {id_variants}")
         elif project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
             # Direct Project Isolation: Only show logs belonging to this project
             pids = [str(project_id)]
@@ -126,8 +133,10 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             logger.info("[ATTENDANCE] No project_id/employee_id provided. Returning ALL logs for Admin view.")
 
         # 1. Fetch logs
+        logger.info(f"[ATTENDANCE] Final Query: {query}")
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
         logs = await cursor.to_list(limit)
+        logger.info(f"[ATTENDANCE] Found {len(logs)} raw logs for query: {query}")
         
         if not logs:
             return []
@@ -214,7 +223,7 @@ async def check_in(
         raise HTTPException(status_code=500, detail="Database not connected")
         
     try:
-        # 🕒 1. Strict Time Check (IST: UTC+5:30)
+        # Time Check (IST: UTC+5:30)
         now_utc = datetime.now(timezone.utc)
         now_ist = now_utc + timedelta(hours=5, minutes=30)
         current_hour = now_ist.hour
@@ -236,9 +245,9 @@ async def check_in(
         accuracy = _safe_float(location_accuracy)
         source = location_source or "gps"
 
-        # 📍 2. Mandatory GPS Check (No IP Fallback)
+        # Mandatory GPS Check (No IP Fallback)
         if lat is None or lng is None:
-            logger.warning(f"🚨 REJECTED CHECK-IN: Employee {employee_id} attempted check-in without GPS.")
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} attempted check-in without GPS.")
             raise HTTPException(
                 status_code=400, 
                 detail="Location permission is required to check in. Please enable GPS."
@@ -303,7 +312,7 @@ async def check_in(
         new_log["userId"] = str(user.get("_id")) if user else None
         new_log["projectId"] = project_id
         
-        # 🔥 Sync status to Employee record
+        # Sync status to Employee record
         await db.employees.update_one(
             {"employee_id": employee_id},
             {"$set": {"is_checked_in": True, "last_check_in": current_time}}
@@ -332,7 +341,7 @@ async def check_out(employee_id: str):
             {"$set": {"check_out": current_time}}
         )
 
-        # 🔥 Sync status to Employee record
+        # Sync status to Employee record
         await db.employees.update_one(
             {"employee_id": employee_id},
             {"$set": {"is_checked_in": False, "last_check_out": current_time}}

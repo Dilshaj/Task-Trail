@@ -23,6 +23,7 @@ import UserOfferLetter from './pages/UserOfferLetter';
 import ApplyLeave from './pages/ApplyLeave';
 import EmployeesPanel from './pages/EmployeesPanel';
 import PaySlipPanel from './pages/PaySlipPanel';
+import AttendanceHistory from './pages/AttendanceHistory';
 
 const PrivateRoute = ({ children, roleRequired }) => {
   const { user } = useAuth();
@@ -155,6 +156,14 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <UserProfile />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/attendance-history"
+        element={
+          <PrivateRoute>
+            <AttendanceHistory />
           </PrivateRoute>
         }
       />

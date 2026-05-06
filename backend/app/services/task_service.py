@@ -20,7 +20,7 @@ def format_task(task):
         # Extract and stringify MongoDB _id
         task_id = str(task.get("_id")) if task.get("_id") else None
         if not task_id:
-            logger.warning("⚠️ Task missing _id during formatting")
+            logger.warning("Task missing _id during formatting")
             return None
             
         # Robust progress conversion
@@ -49,7 +49,7 @@ def format_task(task):
             "created_at": task.get("created_at")
         }
     except Exception as e:
-        logger.error(f"❌ Error formatting task: {str(e)}")
+        logger.error(f"Error formatting task: {str(e)}")
         return None
 
 async def recalculate_employee_progress(employee_id: str):
@@ -73,7 +73,7 @@ async def recalculate_employee_progress(employee_id: str):
         
         emp = await db.employees.find_one(query)
         if emp and emp.get("manual_progress_override") is True:
-            logger.info(f"⏭️ Skipping auto-sync for {emp_id_str} (Manual Override Active)")
+            logger.info(f"Skipping auto-sync for {emp_id_str} (Manual Override Active)")
             return
 
         # 2. Fetch all tasks for this employee
@@ -126,9 +126,9 @@ async def recalculate_employee_progress(employee_id: str):
                 "updated_at": datetime.utcnow()
             }}
         )
-        logger.info(f"📊 AUTO-SYNC: Employee {emp_id_str} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
+        logger.info(f"AUTO-SYNC: Employee {emp_id_str} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
     except Exception as e:
-        logger.error(f"❌ Error recalculating progress for {employee_id}: {e}")
+        logger.error(f"Error recalculating progress for {employee_id}: {e}")
 
 async def get_task_by_id(task_id: str):
     """Helper to fetch a single task by ID."""
@@ -144,7 +144,7 @@ async def get_task_by_id(task_id: str):
 async def create_task(task_data: dict):
     """Inserts a new task and triggers progress sync."""
     if db.db is None or db.tasks is None:
-        logger.error("❌ CREATE TASK ERROR: Database connection is None")
+        logger.error("CREATE TASK ERROR: Database connection is None")
         return None
         
     try:
@@ -166,32 +166,32 @@ async def create_task(task_data: dict):
         }
         
         if db_data["timeline"] == "weekly":
-            logger.info(f"📅 ASSIGNING WEEKLY TASK: '{db_data['title']}' to {db_data['assigned_to']}")
+            logger.info(f"ASSIGNING WEEKLY TASK: '{db_data['title']}' to {db_data['assigned_to']}")
         else:
-            logger.info(f"📤 Assigning daily task: '{db_data['title']}'")
+            logger.info(f"Assigning daily task: '{db_data['title']}'")
         
-        logger.info(f"📤 Inserting task '{db_data['title']}' into Tasks collection...")
+        logger.info(f"Inserting task '{db_data['title']}' into Tasks collection...")
         result = await db.tasks.insert_one(db_data)
         
         if not result.inserted_id:
-            logger.error("❌ MongoDB insert failed: No inserted_id returned")
+            logger.error("MongoDB insert failed: No inserted_id returned")
             return None
             
         task_id = result.inserted_id
-        logger.info(f"✅ Task created successfully! ID: {task_id}")
+        logger.info(f"Task created successfully! ID: {task_id}")
         
-        # 🔥 Trigger Auto-Sync (Non-blocking)
+        # Trigger Auto-Sync (Non-blocking)
         if db_data["assigned_to"]:
             try:
-                logger.info(f"🔄 Triggering auto-sync for {db_data['assigned_to']}")
+                logger.info(f"Triggering auto-sync for {db_data['assigned_to']}")
                 await recalculate_employee_progress(db_data["assigned_to"])
             except Exception as sync_err:
-                logger.error(f"⚠️ Auto-sync warning: {sync_err}")
+                logger.error(f"Auto-sync warning: {sync_err}")
             
         db_data["_id"] = task_id
         return format_task(db_data)
     except Exception as e:
-        logger.error(f"❌ CRITICAL ERROR in create_task: {str(e)}")
+        logger.error(f"CRITICAL ERROR in create_task: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None
@@ -224,7 +224,7 @@ async def update_task_status(task_id: str, new_status: str):
             return_document=True
         )
         
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
             
@@ -249,7 +249,7 @@ async def update_task_progress(task_id: str, new_progress: float):
             return_document=True
         )
 
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
 
@@ -289,7 +289,7 @@ async def get_tasks_by_project(project_id: str = None):
         
         return formatted_tasks
     except Exception as e:
-        logger.error(f"🔥 GET TASKS ERROR: {str(e)}")
+        logger.error(f"GET TASKS ERROR: {str(e)}")
         return []
 
 async def delete_task(task_id: str):
@@ -304,7 +304,7 @@ async def delete_task(task_id: str):
             
         result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
         
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
             

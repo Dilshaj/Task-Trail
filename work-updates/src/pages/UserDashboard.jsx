@@ -23,8 +23,6 @@ const UserDashboard = () => {
     const [slipDateRange, setSlipDateRange] = useState({ start: '', end: '' });
     const [paySlips, setPaySlips] = useState([]);
     const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
-    const [attendanceHistory, setAttendanceHistory] = useState([]);
-    const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
 
     const empId = user?.employee_id || user?.employeeId;
 
@@ -42,14 +40,6 @@ const UserDashboard = () => {
                         console.warn("Pay slips fetch skipped/failed:", err.message);
                         setPaySlips([]);
                     });
-            });
-
-            // Fetch attendance history
-            import('../services/attendanceService').then(({ getMyAttendance }) => {
-                setIsAttendanceLoading(true);
-                getMyAttendance()
-                    .then(data => setAttendanceHistory(data || []))
-                    .finally(() => setIsAttendanceLoading(false));
             });
         }
     }, [empId]);
@@ -535,87 +525,6 @@ const UserDashboard = () => {
                 </div>
             </div>
 
-            {/* Attendance History Section */}
-            <div className="bg-white dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200/60 dark:border-slate-800 shadow-sm mb-8 animate-fade-in-up">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <CalendarRange className="h-5 w-5 text-emerald-500" />
-                        Attendance History
-                    </h3>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900/40 px-3 py-1 rounded-full">
-                        Recent Logs
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-700">
-                                <th className="pb-4 font-bold text-xs text-slate-400 uppercase tracking-wider pl-2">Date</th>
-                                <th className="pb-4 font-bold text-xs text-slate-400 uppercase tracking-wider">Check In</th>
-                                <th className="pb-4 font-bold text-xs text-slate-400 uppercase tracking-wider">Check Out</th>
-                                <th className="pb-4 font-bold text-xs text-slate-400 uppercase tracking-wider">Location</th>
-                                <th className="pb-4 font-bold text-xs text-slate-400 uppercase tracking-wider text-right pr-2">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                            {isAttendanceLoading ? (
-                                [1, 2, 3].map(i => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td colSpan="5" className="py-4">
-                                            <div className="h-4 bg-slate-100 dark:bg-slate-700 rounded-lg w-full"></div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : attendanceHistory.length > 0 ? (
-                                attendanceHistory.slice(0, 10).map((log, idx) => (
-                                    <tr key={log.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors group">
-                                        <td className="py-4 pl-2">
-                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                                {new Date(log.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                            </span>
-                                        </td>
-                                        <td className="py-4">
-                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                                <LogIn className="h-3 w-3 text-emerald-500" />
-                                                <span className="text-xs font-medium">
-                                                    {log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4">
-                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                                <LogOut className="h-3 w-3 text-rose-500" />
-                                                <span className="text-xs font-medium">
-                                                    {log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4">
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[150px]" title={log.locationName}>
-                                                {log.locationName || 'GPS Captured'}
-                                            </p>
-                                        </td>
-                                        <td className="py-4 text-right pr-2">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                                log.checkOutTime ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100 animate-pulse'
-                                            }`}>
-                                                {log.checkOutTime ? 'Completed' : 'On-going'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="5" className="py-8 text-center text-slate-400 text-xs italic">
-                                        No attendance logs found for your account.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">My Tasks</h2>

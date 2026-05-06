@@ -58,12 +58,12 @@ async def global_exception_handler(request, exc):
     )
 
 # --- API Routes (High Priority first)
+app.include_router(attendance.router, prefix="/api/attendance", tags=["Attendance"])
 app.include_router(pay_slips.router, prefix="/api", tags=["Pay Slips"])
 app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(employees.router, prefix="/api", tags=["Employees"])
 app.include_router(projects.router, prefix="/api", tags=["Projects"])
 app.include_router(tasks.router, prefix="/api", tags=["Tasks"])
-app.include_router(attendance.router, prefix="/api", tags=["Attendance"])
 app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(offer_letter.router, prefix="/api", tags=["Offer Letter"])
@@ -75,8 +75,9 @@ async def health_check():
     db_status = "Connected" if db.db is not None else "Disconnected"
     return {
         "status": "healthy", 
-        "version": "v1.1.0-cloudinary-only",
-        "database": db_status
+        "version": "v1.1.1-debug",
+        "database": db_status,
+        "router_active": True
     }
 
 # --- React SPA Frontend (MUST BE LAST)

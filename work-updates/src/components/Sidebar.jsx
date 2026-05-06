@@ -37,6 +37,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { label: 'Tasks', path: '/dashboard', icon: <CheckSquare className="h-5 w-5" />, hidden: isAdminOrTL },
         { label: 'Leaves', path: '/leaves', icon: <CalendarClock className="h-5 w-5" />, hidden: isAdminOrTL },
         { label: 'Offer Letter', path: '/offer-letter', icon: <FileText className="h-5 w-5" />, hidden: isAdminOrTL },
+        { label: 'Attendance History', path: '/attendance-history', icon: <CalendarClock className="h-5 w-5" />, hidden: isAdminOrTL },
     ].filter(item => !item.hidden);
 
     return (

@@ -9,7 +9,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/attendance", tags=["Attendance"])
+router = APIRouter()
+
+@router.get("/my-attendance", response_model=List[AttendanceResponse])
+async def get_my_attendance(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_user)
+):
+    """Retrieve personal attendance logs for the logged-in employee."""
+    try:
+        emp_id = current_user.get("employee_id")
+        if not emp_id:
+            logger.error(f"AUTH ERROR: User {current_user.get('_id')} has no employee_id")
+            raise HTTPException(status_code=400, detail="Employee ID not found in token")
+            
+        logs = await attendance_service.get_all_attendance(skip=skip, limit=limit, employee_id=emp_id)
+        logger.info(f"API SUCCESS: Found {len(logs)} logs for {emp_id}")
+        return logs
+    except Exception as e:
+        logger.error(f"ATTENDANCE_MY ERROR: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/current-status/{employee_id}")
 async def get_employee_current_status(
@@ -38,17 +60,6 @@ async def get_attendance_logs(
     """Retrieve all logs using the async MongoDB service."""
     target_project = enforced_project_id or project_id
     return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=target_project)
-
-@router.get("/my", response_model=List[AttendanceResponse])
-async def get_my_attendance(
-    current_user: dict = Depends(get_current_user)
-):
-    """Retrieve personal attendance logs for the logged-in employee."""
-    emp_id = current_user.get("employee_id")
-    if not emp_id:
-        raise HTTPException(status_code=400, detail="Employee ID not found in token")
-        
-    return await attendance_service.get_all_attendance(employee_id=emp_id)
 
 @router.get("/admin/export")
 async def export_attendance(

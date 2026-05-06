@@ -60,9 +60,9 @@ export const getAttendanceLogs = async (projectId = null) => {
     }
 };
 
-export const getMyAttendance = async () => {
+export const getMyAttendance = async (limit = 1000) => {
     try {
-        const response = await api.get(`${API_URL}/my`);
+        const response = await api.get(`${API_URL}/my-attendance`, { params: { limit } });
         return response.data;
     } catch (error) {
         console.error('Failed to fetch my attendance:', error);
