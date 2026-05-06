@@ -60,6 +60,16 @@ export const getAttendanceLogs = async (projectId = null) => {
     }
 };
 
+export const getMyAttendance = async () => {
+    try {
+        const response = await api.get(`${API_URL}/my`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to fetch my attendance:', error);
+        return [];
+    }
+};
+
 export const getEmployeeAttendance = async (employeeId) => {
     try {
         const response = await api.get(`${API_URL}/${employeeId}`);

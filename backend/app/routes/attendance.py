@@ -27,7 +27,7 @@ async def get_employee_current_status(
 
     return await attendance_service.get_employee_status(employee_id)
 
-@router.get("")
+@router.get("", response_model=List[AttendanceResponse])
 async def get_attendance_logs(
     project_id: Optional[str] = Query(None), 
     skip: int = 0, 
@@ -38,6 +38,17 @@ async def get_attendance_logs(
     """Retrieve all logs using the async MongoDB service."""
     target_project = enforced_project_id or project_id
     return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=target_project)
+
+@router.get("/my", response_model=List[AttendanceResponse])
+async def get_my_attendance(
+    current_user: dict = Depends(get_current_user)
+):
+    """Retrieve personal attendance logs for the logged-in employee."""
+    emp_id = current_user.get("employee_id")
+    if not emp_id:
+        raise HTTPException(status_code=400, detail="Employee ID not found in token")
+        
+    return await attendance_service.get_all_attendance(employee_id=emp_id)
 
 @router.get("/admin/export")
 async def export_attendance(

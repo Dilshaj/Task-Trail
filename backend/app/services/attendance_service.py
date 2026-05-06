@@ -103,14 +103,17 @@ def _ip_lookup(ip_address: str) -> tuple:
         
     return None, None
 
-async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None):
+async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id: str = None):
     """Fetches all logs from MongoDB with strict project isolation."""
     if db.db is None:
         return []
     try:
         query = {}
         
-        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+        if employee_id:
+            query["employee_id"] = employee_id
+            logger.info(f"[ATTENDANCE] Filtering logs for specific employee_id: {employee_id}")
+        elif project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
             # Direct Project Isolation: Only show logs belonging to this project
             pids = [str(project_id)]
             try: pids.append(ObjectId(project_id))
@@ -120,7 +123,7 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             logger.info(f"[ATTENDANCE] Filtering logs strictly for project_id: {project_id}")
         else:
             # Global Admin View: Return ALL logs if no project_id is specified
-            logger.info("[ATTENDANCE] No project_id provided. Returning ALL logs for Admin view.")
+            logger.info("[ATTENDANCE] No project_id/employee_id provided. Returning ALL logs for Admin view.")
 
         # 1. Fetch logs
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
