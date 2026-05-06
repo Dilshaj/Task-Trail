@@ -130,11 +130,13 @@ async def get_all_leaves(
             
         # 2. Status Isolation (Multi-level Workflow)
         if current_user["role"] == Role.TEAM_LEAD:
-            query["status"] = "PENDING_TEAM_LEAD"
-            logger.info(f"🛡️ [RBAC] TL Filter: project_id={target_project}, status=PENDING_TEAM_LEAD")
+            # TL sees what they need to approve + their team's history
+            query["status"] = {"$in": ["PENDING_TEAM_LEAD", "APPROVED", "REJECTED"]}
+            logger.info(f"🛡️ [RBAC] TL Filter: project_id={target_project}, status=[PENDING_TEAM_LEAD, APPROVED, REJECTED]")
         elif current_user["role"] == Role.SUPER_ADMIN:
-            query["status"] = "PENDING_MANAGEMENT"
-            logger.info(f"🛡️ [RBAC] Management Filter: status=PENDING_MANAGEMENT")
+            # Management sees what they need to approve + all history
+            query["status"] = {"$in": ["PENDING_MANAGEMENT", "APPROVED", "REJECTED"]}
+            logger.info(f"🛡️ [RBAC] Management Filter: status=[PENDING_MANAGEMENT, APPROVED, REJECTED]")
 
         cursor = db.leaves.find(query).sort("created_at", -1)
         leaves = await cursor.to_list(length=500)
