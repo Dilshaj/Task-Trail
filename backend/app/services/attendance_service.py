@@ -5,6 +5,7 @@ import logging
 import json
 import pandas as pd
 import io
+import math
 from urllib.request import Request, urlopen
 from fastapi import HTTPException
 
@@ -102,6 +103,12 @@ def _ip_lookup(ip_address: str) -> tuple:
         logger.warning(f"[ATTENDANCE] Secondary IP lookup failed for {ip_address}: {exc}")
         
     return None, None
+
+def _calculate_euclidean_distance(v1: list, v2: list) -> float:
+    """Calculates the Euclidean distance between two vectors."""
+    if not v1 or not v2 or len(v1) != len(v2):
+        return float('inf')
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(v1, v2)))
 
 async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id: str = None):
     """Fetches all logs from MongoDB with strict project isolation."""
@@ -211,6 +218,7 @@ async def check_in(
     location_name: str = None,
     location_source: str = None,
     location_accuracy: float = None,
+    face_descriptor: list = None,
     request_meta: dict = None
 ):
     """
@@ -262,7 +270,41 @@ async def check_in(
             f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
         )
         
-        # 4. Check for existing active check-in
+        # 4. Face Verification (STRICT)
+        user = await db.employees.find_one({"employee_id": employee_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="Employee record not found")
+
+        stored_encoding = user.get("face_encoding")
+        
+        if not stored_encoding:
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} has no registered face.")
+            raise HTTPException(
+                status_code=403,
+                detail="Face not registered. Please go to Profile and register your face first."
+            )
+            
+        if not face_descriptor:
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} provided no face capture.")
+            raise HTTPException(
+                status_code=400,
+                detail="Face verification is mandatory for check-in."
+            )
+
+        # Compare descriptors
+        distance = _calculate_euclidean_distance(face_descriptor, stored_encoding)
+        logger.info(f"[FACE AUTH] Employee {employee_id} distance: {distance:.4f}")
+
+        if distance > 0.6:
+            logger.warning(f"REJECTED CHECK-IN: Face mismatch for {employee_id} (distance={distance:.4f})")
+            raise HTTPException(
+                status_code=401,
+                detail="Face not recognized. Please ensure your face is clearly visible and try again."
+            )
+
+        logger.info(f"✅ [FACE AUTH SUCCESS] Employee {employee_id} verified.")
+
+        # 5. Check for existing active check-in
         status = await get_active_checkin(employee_id, current_date)
         if status:
             # If already checked in, refresh live location in the existing active row.
@@ -288,8 +330,9 @@ async def check_in(
             logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
             return format_attendance(status), False
 
-        user = await db.employees.find_one({"employee_id": employee_id})
-        project_id = user.get("project_id") if user else None
+            return format_attendance(status), False
+
+        project_id = user.get("project_id")
 
         new_log = {
             "employee_id": employee_id,

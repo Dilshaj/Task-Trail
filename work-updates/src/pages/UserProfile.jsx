@@ -3,8 +3,9 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TaskContext';
 import { Calendar, Mail, Shield, Edit2, Check, X, Camera, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
-import { updateProfile } from '../services/profileService';
+import { updateProfile, registerFace } from '../services/profileService';
 import { changePassword } from '../services/authService';
+import FaceVerificationModal from '../components/FaceVerificationModal';
 
 const UserProfile = () => {
     const { user, updateUser } = useAuth();
@@ -39,6 +40,7 @@ const UserProfile = () => {
     const [previewImage, setPreviewImage] = useState(user?.avatar || employeeData?.avatar);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
 
     const handleEditToggle = () => {
         if (!isEditMode) {
@@ -93,6 +95,20 @@ const UserProfile = () => {
                 setPreviewImage(reader.result);
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    const handleFaceVerified = async (descriptor) => {
+        setIsSubmitting(true);
+        setMessage({ type: '', text: '' });
+        try {
+            await registerFace(descriptor);
+            setMessage({ type: 'success', text: 'Face registered successfully! ✅' });
+            updateUser({ ...user, hasFaceEncoding: true });
+        } catch (error) {
+            setMessage({ type: 'error', text: error.message });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -364,7 +380,9 @@ const UserProfile = () => {
 
                             <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800 w-full">
                                 <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300">
-                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700"><Mail className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
+                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                                        <Mail className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                    </div>
                                     <div className="flex-1">
                                         <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">Email Address</p>
                                         {isEditMode ? (
@@ -383,7 +401,9 @@ const UserProfile = () => {
                                 </div>
 
                                 <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300">
-                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700"><Shield className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
+                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                                        <Shield className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                    </div>
                                     <div className="flex-1">
                                         <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">Access Level</p>
                                         <span className="font-medium capitalize text-slate-700 dark:text-slate-200">{user?.role} Access</span>
@@ -391,7 +411,9 @@ const UserProfile = () => {
                                 </div>
 
                                 <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300">
-                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700"><Calendar className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
+                                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                                        <Calendar className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                    </div>
                                     <div className="flex-1">
                                         <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">Joined Date</p>
                                         {isEditMode ? (
@@ -407,6 +429,36 @@ const UserProfile = () => {
                                                 {user?.joiningDate ? new Date(user.joiningDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set'}
                                             </span>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Face Security Section */}
+                                <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="bg-indigo-50 dark:bg-indigo-900/40 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                                            <Shield className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-800 dark:text-white">Biometric Security</h4>
+                                            <p className="text-xs text-slate-500">Secure your attendance with Face Recognition.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-slate-50 dark:bg-slate-900/40 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`h-3 w-3 rounded-full ${user?.hasFaceEncoding || employeeData?.face_encoding ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                {user?.hasFaceEncoding || employeeData?.face_encoding ? 'Face Recognition Active' : 'Face Not Registered'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsFaceModalOpen(true)}
+                                            className="w-full sm:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 px-6 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                                        >
+                                            <Camera className="h-4 w-4 text-indigo-500" />
+                                            {user?.hasFaceEncoding || employeeData?.face_encoding ? 'Update Face Data' : 'Register My Face'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -439,6 +491,12 @@ const UserProfile = () => {
                     )}
                 </div>
             </div>
+            <FaceVerificationModal 
+                isOpen={isFaceModalOpen}
+                onClose={() => setIsFaceModalOpen(false)}
+                onVerified={handleFaceVerified}
+                mode="register"
+            />
         </Layout>
     );
 };

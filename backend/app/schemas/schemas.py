@@ -98,9 +98,13 @@ class CheckInRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location_name: Optional[str] = None
+    face_descriptor: Optional[List[float]] = None
 
     class Config:
         populate_by_name = True
+
+class FaceRegisterRequest(BaseModel):
+    face_descriptor: List[float]
 
 class AttendanceResponse(BaseModel):
     id: Optional[str] = None

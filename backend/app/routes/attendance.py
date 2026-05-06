@@ -112,6 +112,7 @@ async def employee_check_in(
             location_name=body.get('location_name'),
             location_source=body.get('location_source'),
             location_accuracy=body.get('location_accuracy'),
+            face_descriptor=body.get('face_descriptor'),
             request_meta={
                 "client_ip": request.client.host if request.client else None,
                 "x_forwarded_for": request.headers.get("x-forwarded-for")

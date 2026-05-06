@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useCallback, use
 import { getAttendanceLogs, checkIn, checkOut } from '../services/attendanceService';
 import { useAuth } from './AuthContext';
 import { useProjectFilter } from './ProjectFilterContext';
+import FaceVerificationModal from '../components/FaceVerificationModal';
 
 const AttendanceContext = createContext();
 
@@ -26,6 +27,8 @@ export const AttendanceProvider = ({ children }) => {
     const [activeLog, setActiveLog] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [locationStatus, setLocationStatus] = useState(''); // '', 'Searching GPS...', 'Falling back to IP...', 'Success'
+    const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+    const [pendingCheckInData, setPendingCheckInData] = useState(null);
 
     const updatingRef = React.useRef(false);
 
@@ -62,8 +65,21 @@ export const AttendanceProvider = ({ children }) => {
 
     const [loading, setLoading] = useState(false);
 
-    const handleCheckIn = async () => {
+    const handleCheckIn = async (descriptorArg = null) => {
         if (!user || loading) return;
+
+        // 🛡️ Prevent circular JSON error: 
+        // If handleCheckIn is called directly from onClick, the first arg is an event object.
+        // We detect this and reset faceDescriptor to null so the modal opens.
+        const isEvent = descriptorArg && (descriptorArg.nativeEvent || descriptorArg instanceof Event);
+        const faceDescriptor = isEvent ? null : descriptorArg;
+
+        // If no face descriptor provided, open the modal first
+        if (!faceDescriptor) {
+            setIsFaceModalOpen(true);
+            return;
+        }
+
         setLoading(true);
         
         const empId = user.employee_id || user.employeeId;
@@ -290,7 +306,8 @@ export const AttendanceProvider = ({ children }) => {
             setLocationStatus('Finalizing check-in...');
             const payload = {
                 employeeId: empId,
-                location_name: locationName || 'Auto-detected Location'
+                location_name: locationName || 'Auto-detected Location',
+                face_descriptor: faceDescriptor
             };
             if (latitude !== null) payload.latitude = Number(latitude);
             if (longitude !== null) payload.longitude = Number(longitude);
@@ -316,18 +333,20 @@ export const AttendanceProvider = ({ children }) => {
             setLocationStatus('Error');
             const msg = error.message || '';
 
-            // Fallback: handle old-style 'already' errors just in case
-            if (msg.toLowerCase().includes('already')) {
+            // 🛡️ Handle 403 Forbidden (Missing Biometrics)
+            if (msg.includes('Face not registered')) {
+                alert("🔒 Biometric Registration Required\n\nYou haven't registered your face yet. Please go to your Profile and click 'Register My Face' to enable attendance features.");
+            } else if (msg.toLowerCase().includes('already')) {
+                // Fallback: handle old-style 'already' errors just in case
                 await fetchLogs(true);
-                setTimeout(() => setLocationStatus(''), 2000);
-                return;
+            } else {
+                // Only alert on genuine failures
+                const display = (msg.includes('[object Object]') || !msg)
+                    ? 'A connection error occurred. Please try again.'
+                    : msg;
+                alert(display);
             }
-
-            // Only alert on genuine failures
-            const display = (msg.includes('[object Object]') || !msg)
-                ? 'A connection error occurred. Please try again.'
-                : msg;
-            alert(display);
+            
             setTimeout(() => setLocationStatus(''), 2000);
         } finally {
             setLoading(false);
@@ -367,10 +386,10 @@ export const AttendanceProvider = ({ children }) => {
         // Immediate sync on tab focus (Throttled to once every 5s)
         const handleFocus = () => {
             const now = Date.now();
-            if (now - lastSyncRef.current < 5000) return; 
+            if (now - lastSyncRef.current < 15000) return; // 🚀 Increased throttle (15s)
             lastSyncRef.current = now;
             
-            console.log("🔦 Tab focused - triggering immediate sync");
+            // Background sync on tab focus
             fetchLogs(true);
         };
 
@@ -403,6 +422,14 @@ export const AttendanceProvider = ({ children }) => {
     return (
         <AttendanceContext.Provider value={value}>
             {children}
+            <FaceVerificationModal 
+                isOpen={isFaceModalOpen}
+                onClose={() => setIsFaceModalOpen(false)}
+                onVerified={(descriptor) => {
+                    setIsFaceModalOpen(false);
+                    handleCheckIn(descriptor);
+                }}
+            />
         </AttendanceContext.Provider>
     );
 };
