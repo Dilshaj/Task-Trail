@@ -11,7 +11,8 @@ const EmployeeCard = ({ employee, projectId }) => {
     const { removeEmployee } = useTasks();
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const isAdmin = user?.role === 'admin';
+    const role = user?.role?.toUpperCase();
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
     const handleDelete = async (e) => {
         e.stopPropagation();
@@ -35,7 +36,7 @@ const EmployeeCard = ({ employee, projectId }) => {
                 }`}
             onClick={() => !isDeleting && navigate(`/admin/employee/${employee.id}?project=${projectId}`)}
         >
-            {isAdmin && (
+            {isSuperAdmin && (
                 <button
                     onClick={handleDelete}
                     disabled={isDeleting}

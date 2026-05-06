@@ -3,7 +3,7 @@ import { Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDate } from '../utils/helpers';
 
-const TaskCard = ({ task, onStatusChange, isUser, employee }) => {
+const TaskCard = ({ task, onStatusChange, onProgressChange, isUser, employee }) => {
     const statusColors = {
         'Pending': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-900/50',
         'In Progress': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50',
@@ -16,11 +16,7 @@ const TaskCard = ({ task, onStatusChange, isUser, employee }) => {
         'Low': 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40',
     };
 
-    const displayProgress = task.timeline === 'daily' 
-        ? (employee?.dailyProgress || 0) 
-        : task.timeline === 'weekly' 
-            ? (employee?.weeklyProgress || 0) 
-            : (task.progress || 0);
+    const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
 
 
     return (
@@ -51,24 +47,42 @@ const TaskCard = ({ task, onStatusChange, isUser, employee }) => {
             </div>
 
             {isUser && (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3">
                     {task.status !== 'Completed' && (
-                        <button
-                            onClick={() => onStatusChange(task.id, 'Completed')}
-                            className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-emerald-500 hover:-translate-y-0.5 transition-all duration-300"
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Mark Complete
-                        </button>
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                                <span>Task Progress</span>
+                                <span>{displayProgress}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={displayProgress}
+                                onChange={(e) => onProgressChange && onProgressChange(task.id, Number(e.target.value))}
+                                className="w-full accent-indigo-600 dark:accent-indigo-500"
+                            />
+                        </div>
                     )}
-                    {task.status === 'Pending' && (
-                        <button
-                            onClick={() => onStatusChange(task.id, 'In Progress')}
-                            className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-blue-500 hover:-translate-y-0.5 transition-all duration-300"
-                        >
-                            Start Task
-                        </button>
-                    )}
+                    <div className="flex gap-2">
+                        {task.status !== 'Completed' && (
+                            <button
+                                onClick={() => onStatusChange(task.id, 'Completed')}
+                                className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-emerald-500 hover:-translate-y-0.5 transition-all duration-300"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                Mark Complete
+                            </button>
+                        )}
+                        {task.status === 'Pending' && (
+                            <button
+                                onClick={() => onStatusChange(task.id, 'In Progress')}
+                                className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-blue-500 hover:-translate-y-0.5 transition-all duration-300"
+                            >
+                                Start Task
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

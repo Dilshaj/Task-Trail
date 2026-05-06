@@ -4,13 +4,18 @@ import { useTasks } from '../context/TaskContext';
 import EmployeeCard from '../components/EmployeeCard';
 import AddEmployeeModal from '../components/AddEmployeeModal';
 import { useProjectFilter } from '../context/ProjectFilterContext';
+import { useAuth } from '../context/AuthContext';
 import { Users, Search, Plus, Filter, X } from 'lucide-react';
 
 const EmployeesPanel = () => {
     const { employees, addEmployee, loading } = useTasks();
     const { selectedProjectId, selectedProject } = useProjectFilter();
+    const { user } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    const role = user?.role?.toUpperCase();
+    const isTeamLead = role === 'TEAM_LEAD';
 
     const filteredEmployees = employees.filter(emp =>
         emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -26,7 +31,7 @@ const EmployeesPanel = () => {
             throw err; // Let AddEmployeeModal handle the error display
         }
     };
-
+    
     return (
         <Layout>
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -36,9 +41,11 @@ const EmployeesPanel = () => {
                         Team Members
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        {selectedProject
-                            ? `Employees currently assigned to ${selectedProject.name}.`
-                            : "Manage all employees across all projects."}
+                        {isTeamLead 
+                            ? `Managing employees for your assigned project.`
+                            : selectedProject
+                                ? `Employees currently assigned to ${selectedProject.name}.`
+                                : "Manage all employees across all projects."}
                     </p>
                 </div>
 

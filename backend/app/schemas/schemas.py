@@ -46,8 +46,10 @@ class ProjectResponse(BaseModel):
 class EmployeeCreate(BaseModel):
     employee_id: str
     name: str
-    role: str = "user"
+    role: str = "EMPLOYEE"
     project_id: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 class EmployeeProgressUpdate(BaseModel):
     work_progress_perc: float
@@ -66,10 +68,13 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     deadline: Optional[str] = None
     priority: str = "Medium"
-    timeline: str = "daily"
+    timeline: str = Field(alias="type", default="daily")
     assignedTo: str
     projectId: str
     progress: Optional[float] = 0.0
+
+    class Config:
+        populate_by_name = True
 
 class TaskStatusUpdate(BaseModel):
     status: str
@@ -176,6 +181,7 @@ class EmployeeUpdate(BaseModel):
     project_id: Optional[str] = None
     avatar: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
 
 class DashboardMetricsResponse(BaseModel):
     activeProjects: int

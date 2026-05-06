@@ -28,8 +28,19 @@ const PrivateRoute = ({ children, roleRequired }) => {
   const { user } = useAuth();
 
   if (!user) return <Navigate to="/" />;
-  if (roleRequired && user.role?.toLowerCase() !== roleRequired) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+  
+  const role = user.role?.toUpperCase();
+  const isAdminOrTL = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'ADMIN';
+
+  if (roleRequired === 'admin') {
+    if (!isAdminOrTL) {
+      return <Navigate to="/dashboard" />;
+    }
+    
+    // TEAM_LEAD cannot access global admin dashboard
+    if (role === 'TEAM_LEAD' && window.location.pathname === '/admin') {
+      return <Navigate to="/project-dashboard" />;
+    }
   }
 
   return children;

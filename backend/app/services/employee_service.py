@@ -192,20 +192,30 @@ async def create_employee(employee: EmployeeCreate):
         return None
     try:
         new_emp_data = employee.model_dump()
-        new_emp_data["password_hash"] = get_password_hash("user")
+        
+        # 🔒 RBAC Guard: TEAM_LEAD must have a project_id
+        if new_emp_data.get("role") == "TEAM_LEAD" and not new_emp_data.get("project_id"):
+            raise ValueError("TEAM_LEAD must be assigned to a project_id")
+            
+        # Default password if not provided
+        password = new_emp_data.pop("password", "user123")
+        new_emp_data["password_hash"] = get_password_hash(password)
+        
         new_emp_data["created_at"] = datetime.utcnow()
-        new_emp_data["role"] = "user"
+        new_emp_data["updated_at"] = datetime.utcnow()
         new_emp_data["work_progress_perc"] = 0.0
         new_emp_data["overall_progress_perc"] = 0.0
+        
         if "email" not in new_emp_data or not new_emp_data["email"]:
             new_emp_data["email"] = f"{new_emp_data['employee_id']}@worksheet.local"
-
         
         result = await db.employees.insert_one(new_emp_data)
         new_emp_data["_id"] = result.inserted_id
         return format_employee(new_emp_data)
     except Exception as e:
         logger.error(f"Error creating employee: {e}")
+        if isinstance(e, ValueError):
+            raise e
         return None
 
 async def update_employee_progress(user_id: str, progress: EmployeeProgressUpdate):
@@ -252,12 +262,28 @@ async def update_employee(user_id: str, employee_update):
         return None
     try:
         update_data = employee_update.model_dump(exclude_unset=True)
+        
+        # Hash password if updated
+        if "password" in update_data and update_data["password"]:
+            update_data["password_hash"] = get_password_hash(update_data.pop("password"))
+        elif "password" in update_data:
+            update_data.pop("password")
+            
         update_data["updated_at"] = datetime.utcnow()
         
+        # Ensure TEAM_LEAD has project_id if role is changing to TEAM_LEAD
+        if update_data.get("role") == "TEAM_LEAD" and not update_data.get("project_id"):
+            # Check existing project_id
+            existing = await db.employees.find_one({"_id": ObjectId(user_id)})
+            if not existing.get("project_id"):
+                raise ValueError("TEAM_LEAD must be assigned to a project_id")
+
         await db.employees.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
         return await get_employee_by_id(user_id)
     except Exception as e:
         logger.error(f"Error updating employee: {e}")
+        if isinstance(e, ValueError):
+            raise e
         return None
 
 async def delete_employee(user_id: str):

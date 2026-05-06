@@ -36,7 +36,7 @@ export const AttendanceProvider = ({ children }) => {
         setIsUpdating(true);
         try {
             // 1. Fetch history (Ensuring project-id is passed to bypass isolation filters)
-            const isAdmin = user?.role === 'admin';
+            const isAdmin = user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'SUPER_ADMIN';
             const projId = isAdmin ? selectedProjectId : (user.projectId || user.project_id);
             const data = await getAttendanceLogs(projId);
             setLogs(data);
@@ -67,6 +67,22 @@ export const AttendanceProvider = ({ children }) => {
         setLoading(true);
         
         const empId = user.employee_id || user.employeeId;
+
+        // 🕒 1. Strict Time Check (IST: UTC+5:30)
+        const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+        const ist = new Date(utc + (3600000 * 5.5));
+        const hour = ist.getHours();
+        
+        if (hour < 8) {
+            alert("Check-in not started. Standard check-in time begins at 8:00 AM.");
+            setLoading(false);
+            return;
+        }
+        if (hour >= 19) {
+            alert("Check-in period has ended for today (after 7:00 PM).");
+            setLoading(false);
+            return;
+        }
 
         let latitude = null;
         let longitude = null;
@@ -220,15 +236,10 @@ export const AttendanceProvider = ({ children }) => {
             
             if (coords?.error) {
                 if (coords.error === 'redirecting_https') return;
-                console.warn("⚠️ GPS unavailable, switching to IP fallback:", coords.error);
-                setLocationStatus('GPS Blocked. Falling back to IP...');
-                const ipCoords = await getIPLocation();
-                if (ipCoords) {
-                    coords = ipCoords;
-                    locationName = [ipCoords.city, ipCoords.region].filter(Boolean).join(', ');
-                } else {
-                    throw new Error('Unable to capture location from GPS or IP. Please check location and internet permissions.');
-                }
+                
+                // 📍 REJECT: Mandatory GPS Check (No IP Fallback)
+                console.warn("🚨 Check-in rejected: GPS unavailable/denied:", coords.error);
+                throw new Error('Location permission is required to check in. Please enable GPS and try again.');
             } else {
                 setLocationStatus('GPS Fix Found! Resolving address...');
             }

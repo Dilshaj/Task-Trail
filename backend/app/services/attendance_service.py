@@ -201,32 +201,47 @@ async def check_in(
     location_accuracy: float = None,
     request_meta: dict = None
 ):
-    """Uses insert_one to create a new attendance log with GPS-first, IP-fallback logic."""
+    """
+    Strict Check-In:
+    1. Time must be between 8:00 AM and 7:00 PM IST.
+    2. GPS coordinates (lat/lng) are MANDATORY.
+    3. IP-based fallback is disabled.
+    """
     if db.db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
+        
     try:
+        # 🕒 1. Strict Time Check (IST: UTC+5:30)
+        now_utc = datetime.now(timezone.utc)
+        now_ist = now_utc + timedelta(hours=5, minutes=30)
+        current_hour = now_ist.hour
+        
+        if current_hour < 8:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-in not started. Standard check-in time begins at 8:00 AM."
+            )
+        if current_hour >= 19:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-in is blocked after 7:00 PM."
+            )
+
         current_date, current_time = get_current_timestamps()
         lat = _safe_float(latitude)
         lng = _safe_float(longitude)
         accuracy = _safe_float(location_accuracy)
         source = location_source or "gps"
 
-        # 1. GPS Logic: If coordinates are missing, try IP fallback
+        # 📍 2. Mandatory GPS Check (No IP Fallback)
         if lat is None or lng is None:
-            logger.info(f"[ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
-            ip_addr = _resolve_ip_from_request_meta(request_meta or {})
-            lat, lng = _ip_lookup(ip_addr)
-            source = "ip"
-            accuracy = None # IP accuracy is unknown/broad
-            
-            if lat is None or lng is None:
-                logger.error(f"[ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Unable to determine location. Please enable GPS or check your internet connection."
-                )
+            logger.warning(f"🚨 REJECTED CHECK-IN: Employee {employee_id} attempted check-in without GPS.")
+            raise HTTPException(
+                status_code=400, 
+                detail="Location permission is required to check in. Please enable GPS."
+            )
 
-        # 2. Reverse Geocode to get a human-readable address
+        # 3. Reverse Geocode to get a human-readable address
         resolved_location_name = _reverse_geocode(lat, lng)
         
         # 3. Logging
@@ -338,11 +353,11 @@ async def check_out(employee_id: str):
         logger.error(f"Error during check-out: {e}")
         return None
 
-async def export_attendance_to_excel():
+async def export_attendance_to_excel(project_id: str = None):
     """Generates an Excel file (in-memory) containing all attendance logs."""
     try:
         # 1. Fetch all logs using existing logic
-        logs = await get_all_attendance(limit=10000) # Get a large batch
+        logs = await get_all_attendance(limit=10000, project_id=project_id) # Get a large batch
         
         if not logs:
             # Create an empty dataframe with columns if no data

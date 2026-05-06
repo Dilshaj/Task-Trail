@@ -17,7 +17,8 @@ export const LeaveProvider = ({ children }) => {
             if (!user) return;
 
             let data = [];
-            if (user.role === 'admin') {
+            const isAdmin = user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'SUPER_ADMIN';
+            if (isAdmin) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 const empId = user.employee_id || user.employeeId;
@@ -62,7 +63,8 @@ export const LeaveProvider = ({ children }) => {
 
             // 2. Fetch fresh data
             let data = [];
-            if (user.role === 'admin') {
+            const isAdmin = user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'SUPER_ADMIN';
+            if (isAdmin) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 data = await getMyLeaves(empId);

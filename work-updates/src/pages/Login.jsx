@@ -14,13 +14,24 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const [loginMode, setLoginMode] = useState('admin');
+    const [adminType, setAdminType] = useState('management'); // 'management' or 'team_lead'
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [newPass, setNewPass] = useState('');
     const [tempUser, setTempUser] = useState(null);
 
-    const { signIn } = useAuth();
+    const { signIn, user: currentUser } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
+    
+    // 🛡️ Redirect if already logged in
+    useEffect(() => {
+        if (currentUser) {
+            const role = currentUser.role?.toUpperCase();
+            if (role === 'SUPER_ADMIN' || role === 'ADMIN') navigate('/admin');
+            else if (role === 'TEAM_LEAD') navigate('/project-dashboard');
+            else navigate('/dashboard');
+        }
+    }, [currentUser, navigate]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -28,17 +39,22 @@ const Login = () => {
         setIsLoading(true);
         try {
             const user = await signIn(
-                loginMode === 'admin' ? email : null,
-                loginMode === 'user' ? employeeId : null,
+                (loginMode === 'admin' && adminType === 'management') ? email : null,
+                (loginMode === 'user' || (loginMode === 'admin' && adminType === 'team_lead')) ? employeeId : null,
                 password
             );
-            if (user.isFirstLogin && user.role === 'admin') {
+            const role = user.role?.toUpperCase();
+            const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
+            const isTeamLead = role === 'TEAM_LEAD';
+
+            if (user.isFirstLogin && isSuperAdmin) {
                 setTempUser(user);
                 setShowChangePassword(true);
                 setIsLoading(false);
             } else {
                 setTimeout(() => {
-                    if (user.role === 'admin') navigate('/admin');
+                    if (isSuperAdmin) navigate('/admin');
+                    else if (isTeamLead) navigate('/project-dashboard');
                     else navigate('/dashboard');
                 }, 800);
             }
@@ -144,7 +160,26 @@ const Login = () => {
                     </form>
                 ) : (
                     <form onSubmit={handleLogin} className="space-y-6">
-                        {loginMode === 'admin' ? (
+                        {loginMode === 'admin' && (
+                            <div className="grid grid-cols-2 gap-3 mb-2">
+                                <button
+                                    type="button"
+                                    onClick={() => { setAdminType('team_lead'); setError(''); }}
+                                    className={`py-2.5 rounded-xl text-sm font-bold border transition-all duration-300 ${adminType === 'team_lead' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                                >
+                                    Team Lead
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setAdminType('management'); setError(''); }}
+                                    className={`py-2.5 rounded-xl text-sm font-bold border transition-all duration-300 ${adminType === 'management' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                                >
+                                    Management
+                                </button>
+                            </div>
+                        )}
+
+                        {((loginMode === 'admin' && adminType === 'management')) ? (
                             <div className="space-y-2">
                                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
                                 <div className="relative group">

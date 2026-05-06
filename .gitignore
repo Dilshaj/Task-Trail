@@ -51,3 +51,9 @@ uploads/*
 pdf_dump.txt
 pdf_dump_utf8.txt
 *.log
+backend_log.txt
+backend/CODE_IS_RUNNING.txt
+scratch/
+scratch_*.py
+backend/scratch/
+backend/scratch_*.py

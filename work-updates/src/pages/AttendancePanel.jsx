@@ -7,9 +7,13 @@ import { formatDate, calculateActiveHours } from '../utils/helpers';
 import { exportAttendanceToExcel } from '../services/attendanceService';
 
 import { useProjectFilter } from '../context/ProjectFilterContext';
+import { useProjects } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 
 const AttendancePanel = () => {
     const { logs, fetchLogs } = useAttendance();
+    const { projects } = useProjects();
+    const { user } = useAuth();
     const { selectedProjectId } = useProjectFilter();
     const navigate = useNavigate();
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -80,15 +84,23 @@ const AttendancePanel = () => {
     };
 
     const exportToExcel = (dataToExport, fileName) => {
-        const headers = ['Employee Name', 'Date', 'Check In Time', 'Check Out Time', 'Active Hours', 'Status'];
-        const csvRows = dataToExport.map(log => [
-            `"${log.userName}"`,
-            log.date,
-            `"${formatTime(log.checkInTime)}"`,
-            `"${formatTime(log.checkOutTime)}"`,
-            `"${calculateActiveHours(log.checkInTime, log.checkOutTime)}"`,
-            log.status
-        ]);
+        const isGlobalAdmin = user?.role?.toUpperCase() === 'SUPER_ADMIN' && !selectedProjectId;
+        const headers = isGlobalAdmin 
+            ? ['Employee Name', 'Project', 'Date', 'Check In Time', 'Check Out Time', 'Active Hours', 'Status']
+            : ['Employee Name', 'Date', 'Check In Time', 'Check Out Time', 'Active Hours', 'Status'];
+            
+        const csvRows = dataToExport.map(log => {
+            const row = [
+                `"${log.userName}"`,
+                ...(isGlobalAdmin ? [`"${projects?.find(p => String(p.id) === String(log.projectId))?.name || 'Unknown Project'}"`] : []),
+                log.date,
+                `"${formatTime(log.checkInTime)}"`,
+                `"${formatTime(log.checkOutTime)}"`,
+                `"${calculateActiveHours(log.checkInTime, log.checkOutTime)}"`,
+                log.status
+            ];
+            return row;
+        });
 
         const csvContent = "data:text/csv;charset=utf-8,"
             + headers.join(",") + "\n"
@@ -191,6 +203,9 @@ const AttendancePanel = () => {
                         <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200/40 dark:border-slate-800">
                             <tr>
                                 <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Employee</th>
+                                {user?.role?.toUpperCase() === 'SUPER_ADMIN' && !selectedProjectId && (
+                                    <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Project</th>
+                                )}
                                 <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Date</th>
                                 <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Check In</th>
                                 <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Check Out</th>
@@ -210,6 +225,13 @@ const AttendancePanel = () => {
                                             <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                                             {log.userName}
                                         </td>
+                                        {user?.role?.toUpperCase() === 'SUPER_ADMIN' && !selectedProjectId && (
+                                            <td className="px-6 py-4">
+                                                <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800">
+                                                    {projects?.find(p => String(p.id) === String(log.projectId))?.name || 'Unknown Project'}
+                                                </span>
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4">
                                             {formatDate(log.date)}
                                         </td>

@@ -52,7 +52,7 @@ export const getAttendanceLogs = async (projectId = null) => {
     try {
         const params = { _t: Date.now() }; // 🚀 Cache-buster
         if (projectId) params.project_id = projectId;
-        const response = await api.get(`${API_URL}/`, { params });
+        const response = await api.get(`${API_URL}`, { params });
         return response.data;
     } catch (error) {
         console.error('Failed to fetch attendance logs:', error);

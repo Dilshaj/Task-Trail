@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import { useLeaves } from '../context/LeaveContext';
 import { useAuth } from '../context/AuthContext';
+import { useProjects } from '../context/ProjectContext';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import { Calendar, Trash2, CheckCircle, XCircle, Clock, Plus, Filter } from 'lucide-react';
 import { formatDate } from '../utils/helpers';
 
 const LeavePanel = ({ isAdmin }) => {
     const { user } = useAuth();
+    const { projects } = useProjects();
+    const { selectedProjectId } = useProjectFilter();
     const { leaves, applyLeave, updateLeaveStatus, deleteLeave } = useLeaves();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -65,6 +69,9 @@ const LeavePanel = ({ isAdmin }) => {
                             <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     {isAdmin && <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Employee</th>}
+                                    {user?.role?.toUpperCase() === 'SUPER_ADMIN' && !selectedProjectId && (
+                                        <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Project</th>
+                                    )}
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Leave Type</th>
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Period</th>
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Reason</th>
@@ -77,6 +84,13 @@ const LeavePanel = ({ isAdmin }) => {
                                     displayLeaves.map((leave) => (
                                         <tr key={leave.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                                             {isAdmin && <td className="px-6 py-4 font-medium">{leave.userName}</td>}
+                                            {user?.role?.toUpperCase() === 'SUPER_ADMIN' && !selectedProjectId && (
+                                                <td className="px-6 py-4">
+                                                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800">
+                                                        {projects?.find(p => String(p.id) === String(leave.projectId))?.name || 'Unknown Project'}
+                                                    </span>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4">
                                                 <span className="font-medium">{leave.type}</span>
                                             </td>

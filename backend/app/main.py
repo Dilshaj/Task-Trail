@@ -45,11 +45,16 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     import traceback
-    logger.error(f"GLOBAL ERROR: {str(exc)}")
+    err_msg = str(exc)
+    logger.error(f"GLOBAL ERROR: {err_msg}")
     logger.error(traceback.format_exc())
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "msg": str(exc)}
+        content={
+            "detail": f"Internal Server Error: {err_msg}",
+            "msg": err_msg,
+            "path": request.url.path
+        }
     )
 
 # --- API Routes (High Priority first)

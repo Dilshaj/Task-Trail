@@ -1,9 +1,11 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { getProjects, addProject as apiAddProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject } from '../services/projectService';
+import { useAuth } from './AuthContext';
 
 const ProjectContext = createContext();
 
 export const ProjectProvider = ({ children }) => {
+    const { user } = useAuth();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -20,8 +22,13 @@ export const ProjectProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        fetchProjects();
-    }, [fetchProjects]);
+        if (user) {
+            fetchProjects();
+        } else {
+            setProjects([]);
+            setLoading(false);
+        }
+    }, [fetchProjects, user]);
 
     // 🚀 STEP 4: Ensure UI Refreshes after creation
     const addProject = async (projectObj) => {

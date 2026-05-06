@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from typing import List, Optional
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -6,6 +6,8 @@ import logging
 
 from app.db.mongo import db
 from app.schemas.schemas import LeaveRequestCreate, LeaveRequestResponse
+from app.routes.auth import get_current_user, get_project_filter, require_role, verify_project_access
+from app.core.roles import Role
 
 router = APIRouter(prefix="/employee")
 logger = logging.getLogger(__name__)
@@ -46,28 +48,40 @@ async def format_leave(leave_log: dict):
     }
 
 @router.post("/apply-leave", response_model=LeaveRequestResponse, status_code=status.HTTP_201_CREATED)
-async def apply_leave(leave_data: LeaveRequestCreate):
+async def apply_leave(
+    leave_data: LeaveRequestCreate,
+    current_user: dict = Depends(get_current_user)
+):
     """Submit a new leave request to MongoDB."""
     if db.db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
+    
+    # RBAC: Ensure user is only applying for themselves unless they are admin/tl
+    if current_user["role"] == Role.EMPLOYEE and current_user["employee_id"] != leave_data.employee_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only apply leave for yourself.")
+        
     try:
         new_leave = leave_data.model_dump()
         new_leave["status"] = "Pending"
         new_leave["created_at"] = datetime.utcnow()
         
-        # FIX: Use the 'leaves' property which points to 'Leaves' collection
         result = await db.leaves.insert_one(new_leave)
         new_leave["_id"] = result.inserted_id
         return await format_leave(new_leave)
     except Exception as e:
         logger.error(f"Error applying for leave: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to apply for leave: {str(e)}")
 
 @router.get("/my-leaves/{employee_id}", response_model=List[LeaveRequestResponse])
-async def get_user_leaves(employee_id: str):
+async def get_user_leaves(
+    employee_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """Retrieve all leaves for a specific employee."""
+    # RBAC: Ensure user can only see their own leaves unless admin/tl
+    if current_user["role"] == Role.EMPLOYEE and current_user["employee_id"] != employee_id:
+        raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
+        
     if db.db is None:
         return []
     try:
@@ -79,26 +93,27 @@ async def get_user_leaves(employee_id: str):
         return []
 
 @router.get("/all-leaves", response_model=List[LeaveRequestResponse])
-async def get_all_leaves(project_id: Optional[str] = Query(None)):
+async def get_all_leaves(
+    project_id: Optional[str] = Query(None),
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN])),
+    enforced_project_id: Optional[str] = Depends(get_project_filter)
+):
     """Admin endpoint to see all submitted leave requests with strict project isolation."""
     if db.db is None:
         return []
     try:
         query = {}
-        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+        target_project = enforced_project_id or project_id
+        if target_project and str(target_project).lower() not in ["null", "undefined", "none", ""]:
             # Get all employees in this project
-            pids = [str(project_id)]
-            try: pids.append(ObjectId(project_id))
+            pids = [str(target_project)]
+            try: pids.append(ObjectId(target_project))
             except: pass
             
             cursor_emp = db.employees.find({"project_id": {"$in": pids}})
             project_employees = await cursor_emp.to_list(length=1000)
             emp_ids = [e.get("employee_id") for e in project_employees]
             query["employee_id"] = {"$in": emp_ids}
-        else:
-            # Global Admin View: return all leaves if no specific project_id is requested
-            logger.info("[ISOLATION] No project_id provided for leaves. Returning all leaves.")
-            pass # No query filter on employee_id means all leaves are returned
             
         cursor = db.leaves.find(query).sort("created_at", -1)
         leaves = await cursor.to_list(length=500)
@@ -108,21 +123,33 @@ async def get_all_leaves(project_id: Optional[str] = Query(None)):
         return []
 
 @router.patch("/update-status/{leave_id}", response_model=LeaveRequestResponse)
-async def update_leave_status(leave_id: str, status: str):
+async def update_leave_status(
+    leave_id: str, 
+    status: str,
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN]))
+):
     """Approve or Reject a leave request."""
     if db.db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
     try:
+        leave = await db.leaves.find_one({"_id": ObjectId(leave_id)})
+        if not leave:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+            
+        # RBAC: TEAM_LEAD can only update status for their project
+        if current_user["role"] == Role.TEAM_LEAD:
+            emp = await db.employees.find_one({"employee_id": leave.get("employee_id")})
+            if not emp or str(emp.get("project_id")) != str(current_user.get("project_id")):
+                raise HTTPException(status_code=403, detail="Forbidden: You can only approve leaves for your project.")
+
         updated = await db.leaves.find_one_and_update(
             {"_id": ObjectId(leave_id)},
             {"$set": {"status": status}},
             return_document=True
         )
-        if not updated:
-            raise HTTPException(status_code=404, detail="Leave request not found")
         return await format_leave(updated)
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating leave status: {e}")
-        raise HTTPException(status_code=400, detail="Invalid leave request ID")
+        raise HTTPException(status_code=400, detail="Invalid request")

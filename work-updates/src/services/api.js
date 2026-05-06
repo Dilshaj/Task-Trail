@@ -11,7 +11,7 @@ const api = axios.create({
 // 🔐 Attach token
 api.interceptors.request.use(
     (config) => {
-        const savedUser = localStorage.getItem('user_v2');
+        const savedUser = sessionStorage.getItem('user_v2');
         if (savedUser) {
             const { token } = JSON.parse(savedUser);
             if (token) {
@@ -33,7 +33,7 @@ api.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
-            const savedUser = localStorage.getItem('user_v2');
+            const savedUser = sessionStorage.getItem('user_v2');
             if (savedUser) {
                 const userData = JSON.parse(savedUser);
                 const { refreshToken } = userData;
@@ -50,7 +50,7 @@ api.interceptors.response.use(
 
                             // Update storage
                             const updatedUser = { ...userData, token: newToken };
-                            localStorage.setItem('user_v2', JSON.stringify(updatedUser));
+                            sessionStorage.setItem('user_v2', JSON.stringify(updatedUser));
 
                             // Update original request and retry
                             originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -58,7 +58,7 @@ api.interceptors.response.use(
                         }
                     } catch (refreshError) {
                         console.error("❌ [AUTH] Refresh token failed/expired. Logging out.");
-                        localStorage.removeItem('user_v2');
+                        sessionStorage.removeItem('user_v2');
                         window.location.href = "/";
                         return Promise.reject(refreshError);
                     }

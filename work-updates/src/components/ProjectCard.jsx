@@ -13,39 +13,38 @@ const ProjectCard = ({ project, onEdit, onDelete, onBodyClick }) => {
     return (
         <div
             onClick={() => onBodyClick && onBodyClick(project)}
-            className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-soft transition-all duration-500 hover:-translate-y-2 hover:shadow-xl border border-slate-100 dark:border-slate-800 cursor-pointer"
+            className="group relative overflow-hidden rounded-[24px] bg-white dark:bg-slate-900 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800 cursor-pointer flex flex-col h-full"
         >
-            <div className="aspect-video w-full overflow-hidden bg-slate-900 flex items-center justify-center relative">
+            <div className="aspect-[4/3] w-full overflow-hidden bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-center relative p-6">
                 <img
                     src={imageSrc}
                     alt={project.name}
                     onError={handleImageError}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-500" />
             </div>
 
-            <div className="p-5">
+            <div className="p-5 flex-1 bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-slate-800/50">
                 <div className="flex items-start justify-between">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <h3 className="text-[17px] font-bold text-slate-800 dark:text-white transition-colors">
                             {project.name}
                         </h3>
-                        <p className="text-[10px] font-mono text-slate-400 mt-1 uppercase tracking-widest">
+                        <p className="text-[10px] font-mono text-slate-400 mt-1.5 uppercase tracking-wider">
                             ID: {project.id?.slice(-8) || "NEW-... "}
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute top-3 right-3 bg-white/90 dark:bg-slate-800/90 rounded-full shadow-sm p-1 backdrop-blur-sm border border-slate-100 dark:border-slate-700">
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(project); }}
-                            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition"
+                            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
                         >
                             <Edit2 size={14} />
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onDelete(project.id); }}
-                            className="p-2 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 transition"
+                            className="p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 transition"
                         >
                             <Trash2 size={14} />
                         </button>

@@ -10,6 +10,7 @@ import { calculateActiveHours } from '../utils/helpers';
 import { downloadOfferLetter } from '../services/offerLetterService';
 import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipService';
 import { useLeaves } from '../context/LeaveContext';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const UserDashboard = () => {
     const { user } = useAuth();
@@ -21,6 +22,7 @@ const UserDashboard = () => {
     const [showDateSelector, setShowDateSelector] = useState(false);
     const [slipDateRange, setSlipDateRange] = useState({ start: '', end: '' });
     const [paySlips, setPaySlips] = useState([]);
+    const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
     const empId = user?.employee_id || user?.employeeId;
 
@@ -79,7 +81,7 @@ const UserDashboard = () => {
     const filteredTasks = myTasks.filter(task => {
         if (filter === 'all') return true;
         if (filter === 'completed') return task.status === 'Completed';
-        return task.timeline === filter;
+        return task.timeline && task.timeline.toLowerCase() === filter.toLowerCase();
     });
 
     const handleStatusChange = (taskId, newStatus) => {
@@ -164,11 +166,48 @@ const UserDashboard = () => {
                             </div>
                         )}
 
+                        {/* 🕒 Strict Time Window Validation */}
+                        {(() => {
+                            const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                            const ist = new Date(utc + (3600000 * 5.5));
+                            const hour = ist.getHours();
+                            
+                            if (hour < 8) {
+                                return (
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2 rounded-xl text-amber-700 dark:text-amber-400 text-xs font-bold animate-pulse">
+                                        Check-in starts at 8:00 AM
+                                    </div>
+                                );
+                            }
+                            if (hour >= 19) {
+                                return (
+                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl text-red-700 dark:text-red-400 text-xs font-bold">
+                                        Check-in closed (after 7:00 PM)
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {!activeLog ? (
                             <button
                                 onClick={handleCheckIn}
-                                disabled={loading}
-                                className={`flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                disabled={loading || (() => {
+                                    const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                    const ist = new Date(utc + (3600000 * 5.5));
+                                    const hour = ist.getHours();
+                                    return hour < 8 || hour >= 19;
+                                })()}
+                                className={`flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${
+                                    (loading || (() => {
+                                        const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                        const ist = new Date(utc + (3600000 * 5.5));
+                                        const hour = ist.getHours();
+                                        return hour < 8 || hour >= 19;
+                                    })()) 
+                                    ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none' 
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                }`}
                             >
                                 {loading ? (
                                     <>
@@ -210,7 +249,7 @@ const UserDashboard = () => {
                                 </button>
 
                                 <button
-                                    onClick={handleCheckOut}
+                                    onClick={() => setShowCheckoutConfirm(true)}
                                     className="bg-rose-500 hover:bg-rose-600 text-white p-2.5 rounded-xl transition-all shadow-md shadow-rose-100 dark:shadow-none active:scale-95"
                                     title="Check Out"
                                 >
@@ -218,6 +257,7 @@ const UserDashboard = () => {
                                 </button>
                             </div>
                         )}
+
                     </div>
                 </div>
             </div>
@@ -510,6 +550,7 @@ const UserDashboard = () => {
                                 isUser={true}
                                 employee={employeeData}
                                 onStatusChange={handleStatusChange}
+                                onProgressChange={updateTaskProgress}
                             />
                         </div>
                     ))
@@ -521,6 +562,15 @@ const UserDashboard = () => {
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={showCheckoutConfirm}
+                onClose={() => setShowCheckoutConfirm(false)}
+                onConfirm={handleCheckOut}
+                title="Confirm Check-Out"
+                message="Are you sure you want to check out? Your active working session for today will be ended."
+                confirmText="Yes, Check Out"
+                type="danger"
+            />
         </Layout>
     );
 };

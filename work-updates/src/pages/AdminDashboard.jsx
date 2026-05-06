@@ -22,7 +22,14 @@ const AdminDashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState(null);
 
-    // 🕵️ DEBUG: Log project data to verify arrival from backend
+    // 🕵️ RBAC: Redirect TEAM_LEAD to project-dashboard
+    React.useEffect(() => {
+        const role = user?.role?.toUpperCase();
+        if (role === 'TEAM_LEAD') {
+            navigate('/project-dashboard');
+        }
+    }, [user, navigate]);
+
     React.useEffect(() => {
         console.log("📂 PROJECT DATA SYNC:", projects);
     }, [projects]);
@@ -74,9 +81,9 @@ const AdminDashboard = () => {
         // Store in React state via context
         selectProject(project.id);
 
-        // Explicitly store in localStorage as requested
-        localStorage.setItem('selected_project_id', project.id);
-        localStorage.setItem('selected_project_name', project.name);
+        // Explicitly store in sessionStorage as requested
+        sessionStorage.setItem('selected_project_id', project.id);
+        sessionStorage.setItem('selected_project_name', project.name);
 
         navigate(`/project-dashboard`);
     };
@@ -170,15 +177,19 @@ const AdminDashboard = () => {
                     </div>
                 ))}
 
-                <button
-                    onClick={openAddModal}
-                    className="group flex aspect-video md:aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-transparent text-slate-500 dark:text-slate-400 transition-all duration-300 hover:shadow-md hover:border-blue-400 dark:hover:border-indigo-500 hover:bg-blue-50 dark:hover:bg-indigo-900/20 hover:text-blue-600 dark:hover:text-indigo-400 hover:-translate-y-1 animate-fade-in-up stagger-4"
-                >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-indigo-900/40 transition">
-                        <Plus className="h-6 w-6" />
+                {user?.role?.toUpperCase() === 'SUPER_ADMIN' && (
+                    <div className={`animate-fade-in-up stagger-${(projects.length % 5) + 1} h-full`}>
+                        <button
+                            onClick={openAddModal}
+                            className="group flex h-full min-h-[250px] w-full flex-col items-center justify-center gap-3 rounded-[24px] border border-dashed border-slate-300 dark:border-slate-700 bg-transparent text-slate-500 dark:text-slate-400 transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.15)] hover:border-blue-400 dark:hover:border-indigo-500 hover:bg-blue-50/50 dark:hover:bg-indigo-900/20 hover:text-blue-600 dark:hover:text-indigo-400 hover:-translate-y-1"
+                        >
+                            <div className="flex h-12 w-12 items-center justify-center transition group-hover:scale-110">
+                                <Plus className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium">Add Project</span>
+                        </button>+
                     </div>
-                    <span className="font-medium">Add Project</span>
-                </button>
+                )}
             </div>
 
             <AddProjectModal

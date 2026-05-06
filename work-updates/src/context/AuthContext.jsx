@@ -5,7 +5,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
-        const savedUser = localStorage.getItem('user_v2');
+        const savedUser = sessionStorage.getItem('user_v2');
         return savedUser ? JSON.parse(savedUser) : null;
     });
 
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
             };
             const normalized = normalizeAvatar(userData);
             setUser(normalized);
-            localStorage.setItem('user_v2', JSON.stringify(normalized));
+            sessionStorage.setItem('user_v2', JSON.stringify(normalized));
             return normalized;
         } catch (error) {
             throw error;
@@ -29,16 +29,41 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem('user_v2');
+        sessionStorage.removeItem('user_v2');
     };
 
     const updateUser = (updatedData) => {
         setUser(prev => {
             const newUser = { ...prev, ...updatedData };
-            localStorage.setItem('user_v2', JSON.stringify(newUser));
+            sessionStorage.setItem('user_v2', JSON.stringify(newUser));
             return newUser;
         });
     };
+
+    // 🔄 Keep state in sync with sessionStorage (for token refreshes in api.js)
+    useEffect(() => {
+        const syncAuth = (e) => {
+            if (e.key === 'user_v2') {
+                const newUser = e.newValue ? JSON.parse(e.newValue) : null;
+                setUser(newUser);
+            }
+        };
+        window.addEventListener('storage', syncAuth);
+        
+        // Polling fallback for the SAME tab (storage event only fires on other tabs)
+        const interval = setInterval(() => {
+            const saved = sessionStorage.getItem('user_v2');
+            const parsed = saved ? JSON.parse(saved) : null;
+            if (JSON.stringify(parsed?.token) !== JSON.stringify(user?.token)) {
+                setUser(parsed);
+            }
+        }, 5000);
+
+        return () => {
+            window.removeEventListener('storage', syncAuth);
+            clearInterval(interval);
+        };
+    }, [user?.token]);
 
     return (
         <AuthContext.Provider value={{ user, signIn, logout, updateUser }}>

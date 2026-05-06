@@ -19,7 +19,10 @@ const Navbar = ({ onMenuClick }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const searchContainerRef = useRef(null);
-    const isAdmin = user?.role === 'admin';
+    const role = user?.role?.toUpperCase();
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
+    const isTeamLead = role === 'TEAM_LEAD';
+    const isAdminOrTL = isSuperAdmin || isTeamLead;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -43,7 +46,7 @@ const Navbar = ({ onMenuClick }) => {
         navigate(`/admin/employee/${employee.id}?project=${employee.projectId || ''}`);
     };
 
-    const searchResults = isAdmin && employees
+    const searchResults = isAdminOrTL && employees
         ? employees
             .filter(emp => emp.name.toLowerCase().includes(searchQuery.toLowerCase()))
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -102,7 +105,7 @@ const Navbar = ({ onMenuClick }) => {
                     )}
 
                     {/* Search Dropdown */}
-                    {isDropdownOpen && isAdmin && (
+                    {isDropdownOpen && isAdminOrTL && (
                         <div className="absolute top-11 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg overflow-hidden py-1 z-50">
                             {searchResults.length > 0 ? (
                                 searchResults.map(emp => (
@@ -129,7 +132,7 @@ const Navbar = ({ onMenuClick }) => {
                 </div>
 
                 {/* Mobile Search Trigger */}
-                {!isMobileSearchOpen && isAdmin && (
+                {!isMobileSearchOpen && isAdminOrTL && (
                     <button
                         className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full sm:hidden transition micro-interaction"
                         onClick={() => setIsMobileSearchOpen(true)}

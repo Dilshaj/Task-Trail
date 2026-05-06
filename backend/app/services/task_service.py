@@ -1,22 +1,42 @@
 from app.db.mongo import db
+import logging
+import os
 from datetime import datetime
 from bson import ObjectId
-import logging
 
+# Set up logging to the existing backend_debug.log
 logger = logging.getLogger(__name__)
+log_file = "backend_debug.log"
+file_handler = logging.FileHandler(log_file)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
 
 def format_task(task):
     if not task:
         return None
         
     try:
-        # Ensure all ID fields are strings for Pydantic/Frontend consistency
+        # Extract and stringify MongoDB _id
+        task_id = str(task.get("_id")) if task.get("_id") else None
+        if not task_id:
+            logger.warning("⚠️ Task missing _id during formatting")
+            return None
+            
+        # Robust progress conversion
+        raw_progress = task.get("progress", 0.0)
+        try:
+            progress_val = float(raw_progress) if raw_progress is not None else 0.0
+        except (ValueError, TypeError):
+            progress_val = 0.0
+
+        # Build consistent response dict
         return {
-            "id": str(task.get("_id")),
-            "_id": str(task.get("_id")),
-            "title": task.get("title"),
-            "description": task.get("description"),
-            "deadline": task.get("deadline"),
+            "id": task_id,
+            "_id": task_id,
+            "title": task.get("title", "Untitled Task"),
+            "description": task.get("description", ""),
+            "deadline": task.get("deadline", ""),
             "priority": task.get("priority", "Medium"),
             "status": task.get("status", "Pending"),
             "timeline": task.get("timeline", "daily"),
@@ -24,34 +44,47 @@ def format_task(task):
             "assigned_to": str(task.get("assigned_to")) if task.get("assigned_to") else None,
             "projectId": str(task.get("project_id")) if task.get("project_id") else None,
             "project_id": str(task.get("project_id")) if task.get("project_id") else None,
-            "progress": float(task.get("progress", 0.0)) if task.get("progress") is not None else 0.0,
+            "progress": progress_val,
             "createdAt": task.get("created_at"),
             "created_at": task.get("created_at")
         }
     except Exception as e:
-        logger.error(f"❌ Error formatting task {task.get('_id')}: {e}")
+        logger.error(f"❌ Error formatting task: {str(e)}")
         return None
 
 async def recalculate_employee_progress(employee_id: str):
     """
     Calculates progress percentages based on the average of task progress percentages.
+    Supports both MongoDB _id and business employee_id.
     """
-    if not employee_id or not db.db:
+    if not employee_id or db.db is None:
         return
 
     try:
+        # Convert to string for query building
+        emp_id_str = str(employee_id)
+        
         # 1. Fetch the employee to check for manual override flag
-        query = {"$or": [{"employee_id": employee_id}]}
-        try: query["$or"].append({"_id": ObjectId(employee_id)})
-        except: pass
+        query = {"$or": [{"employee_id": emp_id_str}]}
+        try: 
+            query["$or"].append({"_id": ObjectId(emp_id_str)})
+        except: 
+            pass
         
         emp = await db.employees.find_one(query)
         if emp and emp.get("manual_progress_override") is True:
-            logger.info(f"⏭️ Skipping auto-sync for {employee_id} (Manual Override Active)")
+            logger.info(f"⏭️ Skipping auto-sync for {emp_id_str} (Manual Override Active)")
             return
 
         # 2. Fetch all tasks for this employee
-        cursor = db.tasks.find({"assigned_to": employee_id})
+        # Use $in to match either the business ID or the MongoDB ID
+        match_ids = [emp_id_str]
+        try:
+            match_ids.append(ObjectId(emp_id_str))
+        except:
+            pass
+            
+        cursor = db.tasks.find({"assigned_to": {"$in": match_ids}})
         all_tasks = await cursor.to_list(length=1000)
         
         if not all_tasks:
@@ -68,7 +101,6 @@ async def recalculate_employee_progress(employee_id: str):
 
         def calc_perc(tasks):
             if not tasks: return 0.0
-            # Calculate average progress (treat "Completed" status as 100%)
             total_progress = 0.0
             for t in tasks:
                 raw_prog = t.get("progress", 0.0)
@@ -94,51 +126,72 @@ async def recalculate_employee_progress(employee_id: str):
                 "updated_at": datetime.utcnow()
             }}
         )
-        print(f"📊 AUTO-SYNC: Employee {employee_id} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
+        logger.info(f"📊 AUTO-SYNC: Employee {emp_id_str} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
     except Exception as e:
-        logger.error(f"Error recalculating progress: {e}")
+        logger.error(f"❌ Error recalculating progress for {employee_id}: {e}")
+
+async def get_task_by_id(task_id: str):
+    """Helper to fetch a single task by ID."""
+    if not task_id or db.db is None:
+        return None
+    try:
+        task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+        return format_task(task)
+    except Exception as e:
+        logger.error(f"Error getting task {task_id}: {e}")
+        return None
 
 async def create_task(task_data: dict):
     """Inserts a new task and triggers progress sync."""
-    print(f"DEBUG: create_task called with {task_data}")
-    if db.db is None:
+    if db.db is None or db.tasks is None:
         logger.error("❌ CREATE TASK ERROR: Database connection is None")
-        print("DEBUG: db.db is None")
         return None
+        
     try:
-        logger.info(f"📝 Creating task with data: {task_data}")
-        print("DEBUG: Constructing db_data")
+        # Prepare data for MongoDB (using original snake_case for DB)
+        # Support both 'timeline' and 'type' for maximum frontend compatibility
+        timeline_val = task_data.get("timeline") or task_data.get("type") or "daily"
+        
         db_data = {
             "title": task_data.get("title"),
             "description": task_data.get("description"),
             "deadline": task_data.get("deadline"),
             "priority": task_data.get("priority", "Medium"),
-            "timeline": task_data.get("timeline", "daily"),
+            "timeline": timeline_val.strip().lower(),
             "status": task_data.get("status", "Pending"),
-            "assigned_to": task_data.get("assignedTo") or task_data.get("assigned_to"),
-            "project_id": task_data.get("projectId") or task_data.get("project_id"),
-            "progress": task_data.get("progress", 0.0),
+            "assigned_to": str(task_data.get("assignedTo") or task_data.get("assigned_to") or ""),
+            "project_id": str(task_data.get("projectId") or task_data.get("project_id") or ""),
+            "progress": float(task_data.get("progress", 0.0)),
             "created_at": datetime.utcnow()
         }
         
-        logger.info(f"📤 Inserting into MongoDB: {db_data}")
-        print(f"DEBUG: Inserting into {db.tasks.name}")
-        result = await db.tasks.insert_one(db_data)
-        task_id = result.inserted_id
-        logger.info(f"✅ Task inserted with ID: {task_id}")
+        if db_data["timeline"] == "weekly":
+            logger.info(f"📅 ASSIGNING WEEKLY TASK: '{db_data['title']}' to {db_data['assigned_to']}")
+        else:
+            logger.info(f"📤 Assigning daily task: '{db_data['title']}'")
         
-        # 🔥 Trigger Auto-Sync (Wrapped in try-except so it doesn't block task creation)
+        logger.info(f"📤 Inserting task '{db_data['title']}' into Tasks collection...")
+        result = await db.tasks.insert_one(db_data)
+        
+        if not result.inserted_id:
+            logger.error("❌ MongoDB insert failed: No inserted_id returned")
+            return None
+            
+        task_id = result.inserted_id
+        logger.info(f"✅ Task created successfully! ID: {task_id}")
+        
+        # 🔥 Trigger Auto-Sync (Non-blocking)
         if db_data["assigned_to"]:
             try:
-                logger.info(f"🔄 Triggering progress sync for employee: {db_data['assigned_to']}")
+                logger.info(f"🔄 Triggering auto-sync for {db_data['assigned_to']}")
                 await recalculate_employee_progress(db_data["assigned_to"])
             except Exception as sync_err:
-                logger.error(f"⚠️ Auto-sync failed but task was created: {sync_err}")
+                logger.error(f"⚠️ Auto-sync warning: {sync_err}")
             
         db_data["_id"] = task_id
         return format_task(db_data)
     except Exception as e:
-        logger.error(f"❌ CRITICAL ERROR IN create_task: {str(e)}")
+        logger.error(f"❌ CRITICAL ERROR in create_task: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None
@@ -149,7 +202,8 @@ async def get_tasks_by_employee(employee_id: str):
     try:
         cursor = db.tasks.find({"assigned_to": employee_id}).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=100)
-        return [format_task(t) for t in raw_tasks]
+        # Filter out None values from failed formatting
+        return [f for f in (format_task(t) for t in raw_tasks) if f]
     except Exception as e:
         logger.error(f"Error getting tasks by employee: {e}")
         return []
