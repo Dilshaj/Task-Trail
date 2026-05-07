@@ -78,5 +78,10 @@ class MongoDB:
         self.ensure_connected()
         return self.db.PaySlips if self.db is not None else None
 
+    @property
+    def notifications(self):
+        self.ensure_connected()
+        return self.db.Notifications if self.db is not None else None
+
 # Initialize the engine instance
 db = MongoDB()

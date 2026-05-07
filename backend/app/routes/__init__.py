@@ -8,5 +8,6 @@ from . import (
     profile, 
     offer_letter, 
     employee_leaves, 
-    pay_slips
+    pay_slips,
+    notification
 )

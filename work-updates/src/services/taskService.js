@@ -10,9 +10,10 @@ export const getTasks = async (projectId = null) => {
     } catch { return []; }
 };
 
-export const getTasksByEmployee = async (userId) => {
+export const getTasksByEmployee = async (userId, currentWeek = false) => {
     try {
-        const res = await api.get(`tasks/employee/${userId}`);
+        const params = currentWeek ? { current_week: true } : {};
+        const res = await api.get(`tasks/employee/${userId}`, { params });
         return res.data;
     } catch { return []; }
 };
@@ -49,6 +50,15 @@ export const updateTaskProgress = async (id, progress) => {
         return res.data;
     } catch (error) {
         throw new Error(error.response?.data?.detail || 'Failed to update task progress');
+    }
+};
+
+export const adminUpdateTask = async (id, taskData) => {
+    try {
+        const res = await api.put(`tasks/${id}`, taskData);
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.detail || 'Failed to update task');
     }
 };
 

@@ -1,13 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { ProjectProvider } from './context/ProjectContext';
-import { TaskProvider } from './context/TaskContext';
-import { AttendanceProvider } from './context/AttendanceContext';
-import { LeaveProvider } from './context/LeaveContext';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import { useState, useEffect } from 'react';
-import { ProjectFilterProvider } from './context/ProjectFilterContext';
 
 import PageLoader from './components/PageLoader';
 import Login from './pages/Login';
@@ -26,7 +20,8 @@ import PaySlipPanel from './pages/PaySlipPanel';
 import AttendanceHistory from './pages/AttendanceHistory';
 
 const PrivateRoute = ({ children, roleRequired }) => {
-  const { user } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user;
 
   if (!user) return <Navigate to="/" />;
   
@@ -186,25 +181,7 @@ function App() {
     return <PageLoader />;
   }
 
-  return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <ProjectProvider>
-            <ProjectFilterProvider>
-              <TaskProvider>
-                <AttendanceProvider>
-                  <LeaveProvider>
-                    <AppRoutes />
-                  </LeaveProvider>
-                </AttendanceProvider>
-              </TaskProvider>
-            </ProjectFilterProvider>
-          </ProjectProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  );
+  return <AppRoutes />;
 }
 
 export default App;

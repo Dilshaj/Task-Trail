@@ -5,6 +5,7 @@ import { useAttendance } from '../context/AttendanceContext';
 import Layout from '../components/Layout';
 import TaskCard from '../components/TaskCard';
 import AssignTaskModal from '../components/AssignTaskModal';
+import EditTaskModal from '../components/EditTaskModal';
 import { ArrowLeft, Clock, Plus, Target, Mail, Shield, Calendar } from 'lucide-react';
 
 const EmployeeDetails = () => {
@@ -13,12 +14,13 @@ const EmployeeDetails = () => {
     const projectId = new URLSearchParams(location.search).get('project');
     const navigate = useNavigate();
 
-    const { employees, tasks, fetchTasks, assignTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
+    const { employees, tasks, fetchTasks, assignTask, editTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
 
     const employee = employees.find(e => e.id === id);
     const employeeTasks = tasks.filter(t => t.assignedTo === id);
 
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
     const [dailyProgress, setDailyProgress] = useState(employee?.dailyProgress || 0);
     const [weeklyProgress, setWeeklyProgress] = useState(employee?.weeklyProgress || 0);
 
@@ -49,6 +51,15 @@ const EmployeeDetails = () => {
         } catch (error) {
             console.error("Failed to assign task:", error);
             alert(`Failed to assign task: ${error.message}`);
+        }
+    };
+
+    const handleEditTask = async (taskId, taskData) => {
+        try {
+            await editTask(taskId, taskData);
+        } catch (error) {
+            console.error("Failed to update task:", error);
+            alert(`Failed to update task: ${error.message}`);
         }
     };
 
@@ -211,6 +222,7 @@ const EmployeeDetails = () => {
                                             isUser={true} 
                                             onStatusChange={changeTaskStatus} 
                                             onProgressChange={updateTaskProgress}
+                                            onEdit={(task) => setEditingTask(task)}
                                         />
                                     ))}
                                     {dailyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No daily tasks.</p>}
@@ -228,6 +240,7 @@ const EmployeeDetails = () => {
                                             isUser={true} 
                                             onStatusChange={changeTaskStatus} 
                                             onProgressChange={updateTaskProgress}
+                                            onEdit={(task) => setEditingTask(task)}
                                         />
                                     ))}
                                     {weeklyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No weekly tasks.</p>}
@@ -245,6 +258,13 @@ const EmployeeDetails = () => {
                 onAssign={handleAssignTask}
                 employeeId={id}
                 projectId={projectId || employee.projectId}
+            />
+
+            <EditTaskModal
+                isOpen={!!editingTask}
+                onClose={() => setEditingTask(null)}
+                onSave={handleEditTask}
+                task={editingTask}
             />
         </Layout>
     );

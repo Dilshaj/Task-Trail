@@ -91,6 +91,8 @@ class TaskResponse(BaseModel):
     projectId: Optional[str] = None
     progress: Optional[float] = 0.0
     createdAt: Optional[datetime] = None
+    weekStart: Optional[datetime] = None
+    weekEnd: Optional[datetime] = None
 
 class CheckInRequest(BaseModel):
     employee_id: Optional[str] = Field(alias="employeeId", default=None)
@@ -194,3 +196,14 @@ class DashboardMetricsResponse(BaseModel):
     totalTasks: int
     completedTasks: int
     activeEmployees: int
+
+class NotificationResponse(BaseModel):
+    id: Optional[str] = None
+    employee_id: str
+    message: str
+    type: str  # 'task', 'leave'
+    read: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

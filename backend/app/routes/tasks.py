@@ -24,6 +24,7 @@ async def get_tasks(
 @router.get("/employee/{user_id}", response_model=List[TaskResponse])
 async def get_employee_tasks(
     user_id: str,
+    current_week: bool = Query(False),
     current_user: dict = Depends(get_current_user),
     enforced_project_id: Optional[str] = Depends(get_project_filter)
 ):
@@ -35,6 +36,8 @@ async def get_employee_tasks(
         if emp:
             verify_project_access(current_user, emp.get("projectId"))
             
+    if current_week:
+        return await task_service.get_current_week_tasks_by_employee(employee_id=user_id)
     return await task_service.get_tasks_by_employee(employee_id=user_id)
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -79,6 +82,7 @@ async def create_task(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create task in database. Please check backend logs."
         )
+    
     return result
 
 @router.put("/{id}/status", response_model=TaskResponse)
@@ -134,3 +138,22 @@ async def delete_task(
     if not success:
         raise HTTPException(status_code=404, detail="Task not found")
     return None
+
+@router.put("/{id}", response_model=TaskResponse)
+async def admin_update_task(
+    id: str,
+    task_data: dict,
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+):
+    """Full administrative update of a task."""
+    task = await task_service.get_task_by_id(id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    if current_user["role"] == Role.TEAM_LEAD:
+        verify_project_access(current_user, task.get("projectId"))
+        
+    updated = await task_service.update_task(task_id=id, task_data=task_data)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to update task")
+    return updated

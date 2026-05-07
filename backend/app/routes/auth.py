@@ -66,7 +66,7 @@ def require_role(allowed_roles: List[Role]):
     async def role_checker(current_user: dict = Depends(get_current_user)):
         user_role = current_user.get("role")
         if user_role not in allowed_roles:
-            logger.warning(f"🚫 RBAC REJECTION: User {current_user.get('employee_id')} (Role: {user_role}) attempted to access restricted resource. Required: {allowed_roles}")
+            logger.warning(f"RBAC REJECTION: User {current_user.get('employee_id')} (Role: {user_role}) attempted to access restricted resource. Required: {allowed_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Forbidden: You do not have sufficient permissions."
@@ -93,7 +93,7 @@ async def get_project_filter(current_user: dict = Depends(get_current_user)):
 
 def verify_project_access(user: dict, project_id: str):
     """
-    🔒 Explicit project isolation check.
+    Explicit project isolation check.
     """
     if user.get("role") == Role.SUPER_ADMIN:
         return
@@ -102,7 +102,7 @@ def verify_project_access(user: dict, project_id: str):
     target_project = str(project_id or "")
     
     if user_project != target_project:
-        logger.warning(f"🚫 ISOLATION REJECTION: User {user['employee_id']} (Project: {user_project}) attempted to access Project: {target_project}")
+        logger.warning(f"ISOLATION REJECTION: User {user['employee_id']} (Project: {user_project}) attempted to access Project: {target_project}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied: Resource belongs to another project."
@@ -124,7 +124,7 @@ async def login(request: LoginRequest):
         user = await auth_service.authenticate_user(identifier, request.password)
         
         if not user:
-            logger.warning(f"❌ [AUTH FAILED] Credentials rejected for: {identifier}")
+            logger.warning(f"[AUTH FAILED] Credentials rejected for: {identifier}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"

@@ -11,10 +11,12 @@ import { downloadOfferLetter } from '../services/offerLetterService';
 import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipService';
 import { useLeaves } from '../context/LeaveContext';
 import ConfirmationModal from '../components/ConfirmationModal';
+import EditTaskModal from '../components/EditTaskModal';
+import { getNotifications, markAsRead } from '../services/notificationService';
 
 const UserDashboard = () => {
     const { user } = useAuth();
-    const { employees, allEmployees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
+    const { employees, allEmployees, tasks, editTask, changeTaskStatus, updateTaskProgress } = useTasks();
     const { activeLog, loading, locationStatus, handleCheckIn, handleCheckOut } = useAttendance();
     const { leaves } = useLeaves();
     const navigate = useNavigate();
@@ -23,6 +25,10 @@ const UserDashboard = () => {
     const [slipDateRange, setSlipDateRange] = useState({ start: '', end: '' });
     const [paySlips, setPaySlips] = useState([]);
     const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [myWeeklyTasks, setMyWeeklyTasks] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
 
     const empId = user?.employee_id || user?.employeeId;
 
@@ -41,8 +47,25 @@ const UserDashboard = () => {
                         setPaySlips([]);
                     });
             });
+
+            // Fetch Notifications
+            getNotifications().then(setNotifications).catch(() => setNotifications([]));
+
+            // Fetch Weekly Tasks
+            import('../services/taskService').then(({ getTasksByEmployee }) => {
+                getTasksByEmployee(empId, true).then(setMyWeeklyTasks);
+            });
         }
-    }, [empId]);
+    }, [empId, tasks]); // Refresh if global tasks change (e.g. status update)
+
+    const handleMarkAsRead = async (id) => {
+        try {
+            await markAsRead(id);
+            setNotifications(prev => prev.filter(n => n.id !== id));
+        } catch (err) {
+            console.error("Failed to mark as read");
+        }
+    };
 
     const handleDownloadOffer = () => {
         if (empId) {
@@ -78,7 +101,9 @@ const UserDashboard = () => {
 
     const [filter, setFilter] = useState('all');
 
-    const filteredTasks = myTasks.filter(task => {
+    const displayTasks = showHistory ? myTasks : myWeeklyTasks;
+
+    const filteredTasks = displayTasks.filter(task => {
         if (filter === 'all') return true;
         if (filter === 'completed') return task.status === 'Completed';
         return task.timeline && task.timeline.toLowerCase() === filter.toLowerCase();
@@ -86,6 +111,14 @@ const UserDashboard = () => {
 
     const handleStatusChange = (taskId, newStatus) => {
         changeTaskStatus(taskId, newStatus);
+    };
+
+    const handleEditTask = async (taskId, taskData) => {
+        try {
+            await editTask(taskId, taskData);
+        } catch (error) {
+            alert("Failed to update task: " + error.message);
+        }
     };
 
 
@@ -335,34 +368,38 @@ const UserDashboard = () => {
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex items-center justify-between animate-fade-in-up stagger-7 group cursor-pointer" onClick={() => navigate('/leaves')}>
-                    <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest Leave Status</p>
-                        {latestLeave ? (
-                            <div className="mt-2 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase">Leave Type</span>
-                                        <span className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{latestLeave.type}</span>
-                                    </div>
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                        latestLeave.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                        latestLeave.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
-                                        'bg-amber-50 text-amber-600 border-amber-100'
-                                    }`}>
-                                        {latestLeave.status}
-                                    </span>
+                <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col animate-fade-in-up stagger-7">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Notifications</p>
+                        {notifications.length > 0 && (
+                            <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-full animate-pulse">
+                                {notifications.length} NEW
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto max-h-[120px] space-y-3 pr-1 scrollbar-none">
+                        {notifications.length > 0 ? (
+                            notifications.map(n => (
+                                <div key={n.id} className="flex items-start gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 hover:border-indigo-100 transition group relative">
+                                    <div className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${n.type === 'task' ? 'bg-indigo-500' : 'bg-emerald-500'}`}></div>
+                                    <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 flex-1 leading-tight line-clamp-2">
+                                        {n.message}
+                                    </p>
+                                    <button 
+                                        onClick={() => handleMarkAsRead(n.id)}
+                                        className="text-slate-400 hover:text-indigo-600 transition"
+                                        title="Dismiss"
+                                    >
+                                        <RotateCw className="h-3 w-3" />
+                                    </button>
                                 </div>
-                                <div className="flex flex-col border-t border-slate-50 dark:border-slate-700/50 pt-2">
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Period</span>
-                                    <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                                        {latestLeave.startDate ? new Date(latestLeave.startDate).toLocaleDateString() : 'N/A'} → {latestLeave.endDate ? new Date(latestLeave.endDate).toLocaleDateString() : 'N/A'}
-                                    </span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 italic line-clamp-1">"{latestLeave.reason}"</p>
-                            </div>
+                            ))
                         ) : (
-                            <div className="mt-2 text-slate-400 text-xs italic">No leave requests found</div>
+                            <div className="h-full flex flex-col items-center justify-center text-slate-400 py-4">
+                                <ShieldCheck className="h-8 w-8 opacity-20 mb-2" />
+                                <p className="text-[10px] font-medium italic">No new alerts</p>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -527,18 +564,34 @@ const UserDashboard = () => {
 
 
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">My Tasks</h2>
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                        {showHistory ? 'Task History' : 'Current Week Tasks'}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                        {showHistory ? 'Showing all assigned tasks' : 'Showing tasks for the current week'}
+                    </p>
+                </div>
 
-                <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
-                    {['all', 'daily', 'weekly', 'completed'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition flex-1 sm:flex-none text-center ${filter === f ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                        >
-                            {f}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border ${showHistory ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'}`}
+                    >
+                        {showHistory ? 'Show Current Week' : 'View History'}
+                    </button>
+                    
+                    <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
+                        {['all', 'daily', 'weekly', 'completed'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition flex-1 sm:flex-none text-center ${filter === f ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -552,6 +605,7 @@ const UserDashboard = () => {
                                 employee={employeeData}
                                 onStatusChange={handleStatusChange}
                                 onProgressChange={updateTaskProgress}
+                                onEdit={(t) => setEditingTask(t)}
                             />
                         </div>
                     ))
@@ -571,6 +625,13 @@ const UserDashboard = () => {
                 message="Are you sure you want to check out? Your active working session for today will be ended."
                 confirmText="Yes, Check Out"
                 type="danger"
+            />
+            
+            <EditTaskModal
+                isOpen={!!editingTask}
+                onClose={() => setEditingTask(null)}
+                onSave={handleEditTask}
+                task={editingTask}
             />
         </Layout>
     );

@@ -197,6 +197,15 @@ async def update_leave_status(
             {"$set": {"status": status, "updated_by": current_user["employee_id"], "updated_at": datetime.utcnow()}},
             return_document=True
         )
+        
+        # 🔔 Notify Employee
+        from app.services import notification_service
+        await notification_service.create_notification(
+            employee_id=updated["employee_id"],
+            message=f"Your leave request has been {status.replace('_', ' ').lower()}",
+            notification_type="leave"
+        )
+        
         return await format_leave(updated)
     except HTTPException:
         raise

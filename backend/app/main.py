@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.core.config import settings
 from app.routes import auth, employees, projects, tasks, attendance, dashboard, profile, offer_letter, employee_leaves, pay_slips
+from app.routes.notification import router as notification_router
 from app.db.mongo import db
 from app.db.optimize import sync_indexes
 
@@ -73,6 +74,7 @@ app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(offer_letter.router, prefix="/api", tags=["Offer Letter"])
 app.include_router(employee_leaves.router, prefix="/api", tags=["Leaves"])
+app.include_router(notification_router, prefix="/api", tags=["Notifications"])
 
 # --- Health
 @app.get("/api/health")

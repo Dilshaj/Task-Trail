@@ -5,8 +5,13 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
-        const savedUser = localStorage.getItem('user_v2');
-        return savedUser ? JSON.parse(savedUser) : null;
+        const savedUser = localStorage.getItem('user_v2') || localStorage.getItem('user');
+        try {
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch (e) {
+            console.error("AuthContext: Error parsing user from storage", e);
+            return null;
+        }
     });
 
     const signIn = async (email, employeeId, password) => {
@@ -18,9 +23,14 @@ export const AuthProvider = ({ children }) => {
                 }
                 return u;
             };
-            const normalized = normalizeAvatar(userData);
+            const normalized = {
+                ...normalizeAvatar(userData),
+                token: userData.token || userData.accessToken,
+                refreshToken: userData.refreshToken || userData.refresh_token
+            };
             setUser(normalized);
             localStorage.setItem('user_v2', JSON.stringify(normalized));
+            localStorage.removeItem('user'); // Clean up legacy key
             return normalized;
         } catch (error) {
             throw error;
@@ -72,4 +82,10 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};

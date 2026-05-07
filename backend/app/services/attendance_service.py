@@ -302,7 +302,7 @@ async def check_in(
                 detail="Face not recognized. Please ensure your face is clearly visible and try again."
             )
 
-        logger.info(f"✅ [FACE AUTH SUCCESS] Employee {employee_id} verified.")
+        logger.info(f"[FACE AUTH SUCCESS] Employee {employee_id} verified.")
 
         # 5. Check for existing active check-in
         status = await get_active_checkin(employee_id, current_date)

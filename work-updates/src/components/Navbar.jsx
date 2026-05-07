@@ -6,6 +6,7 @@ import { Bell, Search, Menu, X, Users, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
 import dilshajLogo from '../pages/dilshaj-logo.jpg';
+import { NotificationBell } from './NotificationBell';
 
 const Navbar = ({ onMenuClick }) => {
     const { user, logout } = useAuth();
@@ -141,10 +142,7 @@ const Navbar = ({ onMenuClick }) => {
                     </button>
                 )}
 
-                <button className={`relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition micro-interaction ${isMobileSearchOpen ? 'hidden sm:block' : 'block'}`}>
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500 border border-white dark:border-slate-900"></span>
-                </button>
+                <NotificationBell />
 
                 {/* Theme Toggle Button */}
                 <button

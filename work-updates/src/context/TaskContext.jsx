@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
-import { getTasks, getEmployees, addTask as apiAddTask, updateTaskStatus as apiUpdateStatus, updateTaskProgress as apiUpdateTaskProgress, updateEmployeeProgress as apiUpdateProgress, addEmployee as apiAddEmployee, deleteEmployee as apiDeleteEmployee } from '../services/taskService';
+import { getTasks, getEmployees, addTask as apiAddTask, updateTaskStatus as apiUpdateStatus, updateTaskProgress as apiUpdateTaskProgress, adminUpdateTask as apiAdminUpdateTask, updateEmployeeProgress as apiUpdateProgress, addEmployee as apiAddEmployee, deleteEmployee as apiDeleteEmployee } from '../services/taskService';
 import { useProjectFilter } from './ProjectFilterContext';
 import { useAuth } from './AuthContext';
 
@@ -60,6 +60,12 @@ export const TaskProvider = ({ children }) => {
         setTasks(prev => [...prev, newTask]);
     };
 
+    const editTask = async (id, taskData) => {
+        const updated = await apiAdminUpdateTask(id, taskData);
+        setTasks(prev => prev.map(t => t.id === id ? updated : t));
+        await fetchEmployees();
+    };
+
     const changeTaskStatus = async (id, status) => {
         const updated = await apiUpdateStatus(id, status);
         setTasks(prev => prev.map(t => t.id === id ? updated : t));
@@ -111,11 +117,12 @@ export const TaskProvider = ({ children }) => {
         assignTask,
         changeTaskStatus,
         updateTaskProgress,
+        editTask,
         updateProgress,
         addEmployee: addNewEmployee,
         removeEmployee,
         refreshEmployees: fetchEmployees
-    }), [tasks, employees, allEmployees, loading, fetchTasks, fetchEmployees, assignTask, changeTaskStatus, updateProgress, addNewEmployee, removeEmployee]);
+    }), [tasks, employees, allEmployees, loading, fetchTasks, fetchEmployees, assignTask, editTask, changeTaskStatus, updateProgress, addNewEmployee, removeEmployee]);
 
     return (
         <TaskContext.Provider value={value}>
