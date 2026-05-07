@@ -298,7 +298,7 @@ async def check_in(
         if distance > 0.6:
             logger.warning(f"REJECTED CHECK-IN: Face mismatch for {employee_id} (distance={distance:.4f})")
             raise HTTPException(
-                status_code=401,
+                status_code=403,
                 detail="Face not recognized. Please ensure your face is clearly visible and try again."
             )
 

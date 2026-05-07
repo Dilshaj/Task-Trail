@@ -57,6 +57,11 @@ async def global_exception_handler(request, exc):
         }
     )
 
+# --- Static Files ---
+static_path = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+
 # --- API Routes (High Priority first)
 app.include_router(attendance.router, prefix="/api/attendance", tags=["Attendance"])
 app.include_router(pay_slips.router, prefix="/api", tags=["Pay Slips"])

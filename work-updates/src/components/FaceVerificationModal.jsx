@@ -14,8 +14,9 @@ const FaceVerificationModal = ({ isOpen, onClose, onVerified, mode = 'verify' })
     useEffect(() => {
         const loadModels = async () => {
             try {
-                setStatus('Loading models...');
-                const MODEL_URL = '/models';
+                // 🛡️ Fallback to CDN if local models are corrupted (common Git LFS issue)
+                const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+                
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                     faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -24,9 +25,21 @@ const FaceVerificationModal = ({ isOpen, onClose, onVerified, mode = 'verify' })
                 setModelsLoaded(true);
                 setStatus('Ready');
             } catch (err) {
-                console.error('Failed to load models:', err);
-                setError('Failed to load face detection models. Please check your connection.');
-                setStatus('Error');
+                console.error('Failed to load models from CDN, trying local...', err);
+                try {
+                    const LOCAL_MODEL_URL = '/models';
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(LOCAL_MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_MODEL_URL)
+                    ]);
+                    setModelsLoaded(true);
+                    setStatus('Ready');
+                } catch (localErr) {
+                    console.error('Failed to load local models:', localErr);
+                    setError('Failed to load face detection models. Please check your connection.');
+                    setStatus('Error');
+                }
             }
         };
 
@@ -78,7 +91,7 @@ const FaceVerificationModal = ({ isOpen, onClose, onVerified, mode = 'verify' })
     }, [modelsLoaded, isOpen, isCameraActive]);
 
     const captureAndVerify = async () => {
-        if (!videoRef.current || isProcessing) return;
+        if (!videoRef.current || isProcessing || !modelsLoaded) return;
 
         setIsProcessing(true);
         setStatus('Scanning face...');
