@@ -144,7 +144,7 @@ const TaskHistory = () => {
                                             <div className="flex items-center gap-2">
                                                 <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                                    {task.projectName || task.project_name || 'General'}
+                                                    {task.projectName || task.project_name || ''}
                                                 </span>
                                             </div>
                                         </td>

@@ -38,8 +38,11 @@ async def format_task(task):
         except (ValueError, TypeError):
             progress_val = 0.0
 
-        # Fetch project name if missing
+        # Fetch project name if missing (ignore 'General' placeholder)
         project_name = task.get("project_name") or task.get("projectName")
+        if project_name == "General":
+            project_name = None
+            
         pid = task.get("project_id") or task.get("projectId")
         
         if not project_name and pid:
