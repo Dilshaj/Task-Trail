@@ -40,10 +40,14 @@ async def format_task(task):
 
         # Fetch project name if missing
         project_name = task.get("project_name") or task.get("projectName")
-        if not project_name and task.get("project_id"):
+        pid = task.get("project_id") or task.get("projectId")
+        
+        if not project_name and pid:
             try:
                 from app.db.mongo import db
-                proj = await db.projects.find_one({"_id": ObjectId(task["project_id"])})
+                # Handle both string and ObjectId formats for the lookup
+                search_id = ObjectId(pid) if isinstance(pid, str) else pid
+                proj = await db.projects.find_one({"_id": search_id})
                 if proj:
                     project_name = proj.get("name")
             except:
