@@ -24,6 +24,8 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     avatar: Optional[str] = None
     projectId: Optional[str] = None
+    joiningDate: Optional[str] = None
+    joining_date: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -50,6 +52,7 @@ class EmployeeCreate(BaseModel):
     project_id: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
+    joining_date: Optional[str] = None
 
 class EmployeeProgressUpdate(BaseModel):
     work_progress_perc: float
@@ -191,6 +194,7 @@ class EmployeeUpdate(BaseModel):
     avatar: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
+    joining_date: Optional[str] = None
 
 class DashboardMetricsResponse(BaseModel):
     activeProjects: int

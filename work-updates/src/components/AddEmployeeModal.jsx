@@ -10,6 +10,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
     const [employeeId, setEmployeeId] = useState('');
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
+    const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Holds the UUID of the employee found in DB (null if new / not found)
     const [foundEmployee, setFoundEmployee] = useState(null);
@@ -32,6 +33,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
             setEmployeeId('');
             setName('');
             setRole('');
+            setJoiningDate(new Date().toISOString().split('T')[0]);
             setFoundEmployee(null);
             setIdStatus('idle');
             setNameStatus('idle');
@@ -47,6 +49,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
         setEmployeeId(emp.employeeId || '');
         setName(emp.name || '');
         setRole(emp.role || emp.title || '');
+        setJoiningDate(emp.joiningDate || emp.joining_date || new Date().toISOString().split('T')[0]);
     };
 
     const clearFound = () => setFoundEmployee(null);
@@ -111,7 +114,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
                 await refreshEmployees(); // sync context state from server
             } else {
                 // Brand-new employee → create via context/API
-                await onAdd({ employeeId, name, role, projectId });
+                await onAdd({ employeeId, name, role, projectId, joining_date: joiningDate });
             }
             onClose();
         } catch (err) {
@@ -230,6 +233,20 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
                                 onChange={(e) => { setRole(e.target.value); clearFound() }}
                                 className={getInput(foundEmployee ? 'found' : 'idle')}
                                 placeholder="e.g. Backend Developer"
+                            />
+                        </div>
+
+                        {/* ── Joining Date ── */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Joining Date
+                            </label>
+                            <input
+                                type="date"
+                                required
+                                value={joiningDate}
+                                onChange={(e) => setJoiningDate(e.target.value)}
+                                className={inputNormal}
                             />
                         </div>
 

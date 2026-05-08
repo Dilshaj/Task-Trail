@@ -116,7 +116,9 @@ const EmployeeDetails = () => {
                             </span>
                         <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
                             <Calendar className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                            <span className="text-sm font-medium">Joined Jan 2024</span>
+                            <span className="text-sm font-medium">
+                                Joined {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set'}
+                            </span>
                         </div>
                     </div>
 

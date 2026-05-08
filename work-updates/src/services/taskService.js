@@ -94,6 +94,7 @@ export const addEmployee = async (employee) => {
         name: employee.name,
         role: employee.role,
         project_id: employee.projectId,
+        joining_date: employee.joining_date,
     });
     return res.data;
 };

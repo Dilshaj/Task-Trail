@@ -107,7 +107,9 @@ def format_employee(emp):
         
         "createdAt": emp.get("created_at"),
         "created_at": emp.get("created_at"),
-        "updatedAt": emp.get("updated_at")
+        "updatedAt": emp.get("updated_at"),
+        "joiningDate": emp.get("joining_date"),
+        "joining_date": emp.get("joining_date")
     }
 
 async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None):
