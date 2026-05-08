@@ -17,7 +17,7 @@ def get_week_range(date=None):
     # Monday is 0, Sunday is 6
     start = date - timedelta(days=date.weekday())
     start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=6, hours=23, minute=59, second=59)
+    end = start + timedelta(days=6, hours=23, minutes=59, seconds=59)
     return start, end
 
 def format_task(task):
@@ -74,7 +74,7 @@ async def recalculate_employee_progress(employee_id: str):
         # Convert to string for query building
         emp_id_str = str(employee_id)
         
-        # 1. Fetch the employee to check for manual override flag
+        # 1. Fetch the employee
         query = {"$or": [{"employee_id": emp_id_str}]}
         try: 
             query["$or"].append({"_id": ObjectId(emp_id_str)})
@@ -82,8 +82,8 @@ async def recalculate_employee_progress(employee_id: str):
             pass
         
         emp = await db.employees.find_one(query)
-        if emp and emp.get("manual_progress_override") is True:
-            logger.info(f"Skipping auto-sync for {emp_id_str} (Manual Override Active)")
+        if not emp:
+            logger.warning(f"Employee {emp_id_str} not found for progress sync.")
             return
 
         # 2. Fetch all tasks for this employee
@@ -264,9 +264,16 @@ async def update_task_progress(task_id: str, new_progress: float):
         if not task:
             return None
 
+        # Automatically complete task if progress is 100%
+        update_data = {"progress": new_progress, "updated_at": datetime.utcnow()}
+        if new_progress >= 100:
+            update_data["status"] = "Completed"
+        elif new_progress < 100 and task.get("status") == "Completed":
+            update_data["status"] = "In Progress"
+
         updated_task = await db.tasks.find_one_and_update(
             {"_id": ObjectId(task_id)},
-            {"$set": {"progress": new_progress, "updated_at": datetime.utcnow()}},
+            {"$set": update_data},
             return_document=True
         )
 
@@ -339,6 +346,11 @@ async def update_task(task_id: str, task_data: dict):
     if db.db is None:
         return None
     try:
+        # 1. Fetch old task to compare assignees
+        task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+        if not task:
+            return None
+
         # Map frontend camelCase to backend snake_case
         update_fields = {
             "title": task_data.get("title"),
@@ -349,6 +361,12 @@ async def update_task(task_id: str, task_data: dict):
             "progress": float(task_data.get("progress", 0.0)),
             "updated_at": datetime.utcnow()
         }
+        
+        # Automatically update status based on progress
+        if update_fields["progress"] >= 100:
+            update_fields["status"] = "Completed"
+        elif update_fields["progress"] < 100 and update_fields.get("status") == "Completed":
+            update_fields["status"] = "In Progress"
         
         if "assignedTo" in task_data or "assigned_to" in task_data:
             update_fields["assigned_to"] = str(task_data.get("assignedTo") or task_data.get("assigned_to"))
@@ -366,8 +384,14 @@ async def update_task(task_id: str, task_data: dict):
         )
         
         # Trigger Auto-Sync for both old and new assignee if changed
-        if "assigned_to" in update_fields:
-            await recalculate_employee_progress(update_fields["assigned_to"])
+        current_assignee = updated_task.get("assigned_to")
+        if current_assignee:
+            await recalculate_employee_progress(current_assignee)
+            
+        # If the task was reassigned, refresh the old assignee too
+        old_assignee = task.get("assigned_to")
+        if old_assignee and old_assignee != current_assignee:
+            await recalculate_employee_progress(old_assignee)
             
         return format_task(updated_task)
     except Exception as e:

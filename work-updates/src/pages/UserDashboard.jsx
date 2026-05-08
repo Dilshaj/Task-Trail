@@ -128,6 +128,20 @@ const UserDashboard = () => {
     const myLeaves = leaves.filter(l => l.userId === empId);
     const latestLeave = myLeaves.length > 0 ? myLeaves[0] : null;
 
+    // 🔥 INSTANT SYNC: Calculate progress locally from the tasks array
+    const calculateAggregatedProgress = (taskList, timeline) => {
+        const filtered = taskList.filter(t => (t.timeline || '').toLowerCase() === timeline);
+        if (filtered.length === 0) return 0;
+        const total = filtered.reduce((acc, t) => {
+            const p = t.status === 'Completed' ? 100 : (t.progress || 0);
+            return acc + Number(p);
+        }, 0);
+        return Math.round(total / filtered.length);
+    };
+
+    const localDailyProgress = calculateAggregatedProgress(myTasks, 'daily');
+    const localWeeklyProgress = calculateAggregatedProgress(myTasks, 'weekly');
+
     return (
         <Layout>
             {/* Profile Overview Section */}
@@ -342,12 +356,12 @@ const UserDashboard = () => {
                     <div className="flex-1">
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Daily Work Progress</p>
                         <h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                            {employeeData?.dailyProgress || 0}%
+                            {localDailyProgress}%
                         </h3>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div
                                 className="bg-emerald-500 h-full rounded-full transition-all duration-1000"
-                                style={{ width: `${employeeData?.dailyProgress || 0}%` }}
+                                style={{ width: `${localDailyProgress}%` }}
                             ></div>
                         </div>
                     </div>
@@ -357,12 +371,12 @@ const UserDashboard = () => {
                     <div className="flex-1">
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Weekly Work Progress</p>
                         <h3 className="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
-                            {employeeData?.weeklyProgress || 0}%
+                            {localWeeklyProgress}%
                         </h3>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div
                                 className="bg-blue-500 h-full rounded-full transition-all duration-1000"
-                                style={{ width: `${employeeData?.weeklyProgress || 0}%` }}
+                                style={{ width: `${localWeeklyProgress}%` }}
                             ></div>
                         </div>
                     </div>

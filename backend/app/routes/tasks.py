@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/tasks")
+router = APIRouter()
 
 @router.get("", response_model=List[TaskResponse])
 async def get_tasks(
@@ -85,6 +85,26 @@ async def create_task(
     
     return result
 
+@router.put("/{id}", response_model=TaskResponse)
+async def admin_update_task(
+    id: str,
+    task_data: dict,
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+):
+    """Full administrative update of a task."""
+    logger.info(f"ADMIN UPDATE TASK: {id} by {current_user['role']}")
+    task = await task_service.get_task_by_id(id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    if current_user["role"] == Role.TEAM_LEAD:
+        verify_project_access(current_user, task.get("projectId"))
+        
+    updated = await task_service.update_task(task_id=id, task_data=task_data)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to update task")
+    return updated
+
 @router.put("/{id}/status", response_model=TaskResponse)
 async def update_task_status(
     id: str, 
@@ -102,7 +122,6 @@ async def update_task_status(
 
     updated = await task_service.update_task_status(task_id=id, new_status=status_update.status)
     return updated
-
 @router.put("/{id}/progress", response_model=TaskResponse)
 async def update_task_progress(
     id: str, 
@@ -139,21 +158,3 @@ async def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
     return None
 
-@router.put("/{id}", response_model=TaskResponse)
-async def admin_update_task(
-    id: str,
-    task_data: dict,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
-):
-    """Full administrative update of a task."""
-    task = await task_service.get_task_by_id(id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-        
-    if current_user["role"] == Role.TEAM_LEAD:
-        verify_project_access(current_user, task.get("projectId"))
-        
-    updated = await task_service.update_task(task_id=id, task_data=task_data)
-    if not updated:
-        raise HTTPException(status_code=500, detail="Failed to update task")
-    return updated

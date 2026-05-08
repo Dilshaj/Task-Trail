@@ -38,13 +38,6 @@ const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, isUser, empl
                             <Edit2 className="h-4 w-4" />
                         </button>
                     )}
-                    <div className="flex flex-col items-end gap-1">
-                        <span className={clsx("px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap", 
-                            displayProgress >= 100 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400"
-                        )}>
-                            {displayProgress}%
-                        </span>
-                    </div>
                 </div>
             </div>
 
@@ -64,24 +57,8 @@ const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, isUser, empl
 
             {isUser && (
                 <div className="flex flex-col gap-3">
-                    {task.status !== 'Completed' && (
-                        <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between text-xs text-slate-500">
-                                <span>Task Progress</span>
-                                <span>{displayProgress}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={displayProgress}
-                                onChange={(e) => onProgressChange && onProgressChange(task.id, Number(e.target.value))}
-                                className="w-full accent-indigo-600 dark:accent-indigo-500"
-                            />
-                        </div>
-                    )}
                     <div className="flex gap-2">
-                        {task.status !== 'Completed' && (
+                        {isUser && task.status !== 'Completed' && (
                             <button
                                 onClick={() => onStatusChange(task.id, 'Completed')}
                                 className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-emerald-500 hover:-translate-y-0.5 transition-all duration-300"
@@ -90,7 +67,7 @@ const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, isUser, empl
                                 Mark Complete
                             </button>
                         )}
-                        {task.status === 'Pending' && (
+                        {isUser && task.status === 'Pending' && (
                             <button
                                 onClick={() => onStatusChange(task.id, 'In Progress')}
                                 className="flex-1 rounded-xl flex items-center justify-center gap-2 bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:bg-blue-500 hover:-translate-y-0.5 transition-all duration-300"

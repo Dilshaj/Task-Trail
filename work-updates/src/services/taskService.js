@@ -55,7 +55,7 @@ export const updateTaskProgress = async (id, progress) => {
 
 export const adminUpdateTask = async (id, taskData) => {
     try {
-        const res = await api.put(`tasks/${id}`, taskData);
+        const res = await api.put(`direct-task-update/${id}`, taskData);
         return res.data;
     } catch (error) {
         throw new Error(error.response?.data?.detail || 'Failed to update task');
