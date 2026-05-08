@@ -65,7 +65,7 @@ async def format_task(task):
             "timeline": task.get("timeline") or task.get("type") or "daily",
             "assignedTo": str(task.get("assigned_to") or task.get("assignedTo") or task.get("employeeId") or ""),
             "projectId": str(task.get("project_id") or task.get("projectId") or ""),
-            "projectName": project_name or "General",
+            "projectName": project_name or "",
             "progress": progress_val,
             "createdAt": task.get("created_at") or task.get("createdAt"),
             "weekStart": task.get("week_start") or task.get("weekStart"),
@@ -175,6 +175,18 @@ async def create_task(task_data: dict):
         # Support both 'timeline' and 'type' for maximum frontend compatibility
         timeline_val = task_data.get("timeline") or task_data.get("type") or "daily"
         
+        # Resolve Project Name for embedding
+        pid = task_data.get("projectId") or task_data.get("project_id")
+        project_name = task_data.get("projectName") or task_data.get("project_name")
+        
+        if pid and not project_name:
+            try:
+                proj = await db.projects.find_one({"_id": ObjectId(pid) if isinstance(pid, str) else pid})
+                if proj:
+                    project_name = proj.get("name")
+            except:
+                pass
+
         db_data = {
             "title": task_data.get("title"),
             "description": task_data.get("description"),
@@ -183,7 +195,8 @@ async def create_task(task_data: dict):
             "timeline": timeline_val.strip().lower(),
             "status": task_data.get("status", "Pending"),
             "assigned_to": str(task_data.get("assignedTo") or task_data.get("assigned_to") or ""),
-            "project_id": str(task_data.get("projectId") or task_data.get("project_id") or ""),
+            "project_id": str(pid) if pid else None,
+            "project_name": project_name,
             "progress": float(task_data.get("progress", 0.0)),
             "created_at": datetime.utcnow()
         }
