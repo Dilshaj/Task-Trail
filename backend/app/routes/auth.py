@@ -54,10 +54,12 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         # Attach to request state for downstream use
         request.state.user = user
         return user
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT VALIDATION FAILED: {str(e)}")
         raise credentials_exception
     except Exception as e:
         logger.error(f"AUTH DEPENDENCY ERROR: {str(e)}")
+        logger.error(traceback.format_exc())
         raise credentials_exception
 
 # --- RBAC UTILITIES ---
@@ -197,7 +199,8 @@ async def refresh_token(refresh_token: str):
         employee_id: str = payload.get("sub")
         if employee_id is None:
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT REFRESH FAILED: {str(e)}")
         raise credentials_exception
 
     # Check if the token matches what we have in DB
@@ -257,4 +260,3 @@ async def change_password(request: ChangePasswordRequest, current_user: dict = D
         raise HTTPException(status_code=500, detail="Failed to update password in database")
 
 # End of file
-

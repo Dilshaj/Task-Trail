@@ -89,6 +89,7 @@ class TaskResponse(BaseModel):
     timeline: Optional[str] = "daily"
     assignedTo: Optional[str] = None
     projectId: Optional[str] = None
+    projectName: Optional[str] = ""
     progress: Optional[float] = 0.0
     createdAt: Optional[datetime] = None
     weekStart: Optional[datetime] = None

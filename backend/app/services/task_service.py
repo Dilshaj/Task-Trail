@@ -38,9 +38,9 @@ async def format_task(task):
         except (ValueError, TypeError):
             progress_val = 0.0
 
-        # Fetch project name if missing (ignore 'General' placeholder)
+        # Fetch project name if missing (ignore 'General' or empty)
         project_name = task.get("project_name") or task.get("projectName")
-        if project_name == "General":
+        if not project_name or project_name == "General":
             project_name = None
             
         pid = task.get("project_id") or task.get("projectId")
@@ -48,9 +48,15 @@ async def format_task(task):
         if not project_name and pid:
             try:
                 from app.db.mongo import db
-                # Handle both string and ObjectId formats for the lookup
-                search_id = ObjectId(pid) if isinstance(pid, str) else pid
-                proj = await db.projects.find_one({"_id": search_id})
+                # Search using both formats
+                search_ids = [str(pid)]
+                try:
+                    search_ids.append(ObjectId(pid))
+                except:
+                    pass
+                
+                # Direct collection access for reliability
+                proj = await db.db["Projects"].find_one({"_id": {"$in": search_ids}})
                 if proj:
                     project_name = proj.get("name")
             except:
@@ -430,7 +436,16 @@ async def update_task(task_id: str, task_data: dict):
             update_fields["assigned_to"] = str(task_data.get("assignedTo") or task_data.get("assigned_to"))
             
         if "projectId" in task_data or "project_id" in task_data:
-            update_fields["project_id"] = str(task_data.get("projectId") or task_data.get("project_id"))
+            pid = str(task_data.get("projectId") or task_data.get("project_id"))
+            update_fields["project_id"] = pid
+            
+            # Resolve Project Name for embedding
+            try:
+                proj = await db.projects.find_one({"_id": ObjectId(pid) if isinstance(pid, str) else pid})
+                if proj:
+                    update_fields["project_name"] = proj.get("name")
+            except Exception as e:
+                logger.error(f"Error resolving project name in update_task: {e}")
 
         # Remove None values
         update_fields = {k: v for k, v in update_fields.items() if v is not None}
