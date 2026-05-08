@@ -221,7 +221,24 @@ async def get_tasks_by_employee(employee_id: str):
     if db.db is None:
         return []
     try:
-        cursor = db.tasks.find({"assigned_to": employee_id}).sort("created_at", -1)
+        # Resolve ID: Try to find if it's a business ID or MongoDB ID
+        match_ids = [employee_id]
+        try:
+            # Also look for the actual employee record to get their other ID
+            emp = await db.employees.find_one({
+                "$or": [
+                    {"_id": ObjectId(employee_id)},
+                    {"employee_id": employee_id}
+                ]
+            })
+            if emp:
+                match_ids.append(str(emp["_id"]))
+                if emp.get("employee_id"):
+                    match_ids.append(emp["employee_id"])
+        except:
+            pass
+            
+        cursor = db.tasks.find({"assigned_to": {"$in": list(set(match_ids))}}).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=100)
         # Filter out None values from failed formatting
         return [f for f in (format_task(t) for t in raw_tasks) if f]
@@ -403,9 +420,25 @@ async def get_current_week_tasks_by_employee(employee_id: str):
     if db.db is None:
         return []
     try:
+        # Resolve ID: Handle both business ID and MongoDB ID
+        match_ids = [employee_id]
+        try:
+            emp = await db.employees.find_one({
+                "$or": [
+                    {"_id": ObjectId(employee_id)},
+                    {"employee_id": employee_id}
+                ]
+            })
+            if emp:
+                match_ids.append(str(emp["_id"]))
+                if emp.get("employee_id"):
+                    match_ids.append(emp["employee_id"])
+        except:
+            pass
+
         now = datetime.utcnow()
         cursor = db.tasks.find({
-            "assigned_to": employee_id,
+            "assigned_to": {"$in": list(set(match_ids))},
             "week_start": {"$lte": now},
             "week_end": {"$gte": now}
         }).sort("created_at", -1)

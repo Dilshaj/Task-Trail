@@ -94,9 +94,11 @@ const UserDashboard = () => {
         }
     };
     const userId = (user?.id || '').toLowerCase().trim();
+    const employeeId = (user?.employee_id || user?.employeeId || '').toLowerCase().trim();
+    
     const myTasks = tasks.filter(t => {
         const assignedId = (t.assignedTo || '').toLowerCase().trim();
-        return assignedId === userId;
+        return assignedId === userId || (employeeId && assignedId === employeeId);
     });
 
     const [filter, setFilter] = useState('all');
