@@ -20,7 +20,7 @@ def get_week_range(date=None):
     end = start + timedelta(days=6, hours=23, minutes=59, seconds=59)
     return start, end
 
-def format_task(task):
+async def format_task(task):
     if not task:
         return None
         
@@ -155,7 +155,7 @@ async def get_task_by_id(task_id: str):
         return None
     try:
         task = await db.tasks.find_one({"_id": ObjectId(task_id)})
-        return format_task(task)
+        return await format_task(task)
     except Exception as e:
         logger.error(f"Error getting task {task_id}: {e}")
         return None
@@ -219,7 +219,7 @@ async def create_task(task_data: dict):
                 logger.error(f"Auto-sync/Notification warning: {sync_err}")
             
         db_data["_id"] = task_id
-        return format_task(db_data)
+        return await format_task(db_data)
     except Exception as e:
         logger.error(f"CRITICAL ERROR in create_task: {str(e)}")
         import traceback
@@ -257,7 +257,12 @@ async def get_tasks_by_employee(employee_id: str):
         cursor = db.tasks.find(query).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=100)
         # Filter out None values from failed formatting
-        return [f for f in (format_task(t) for t in raw_tasks) if f]
+        formatted = []
+        for t in raw_tasks:
+            f = await format_task(t)
+            if f:
+                formatted.append(f)
+        return formatted
     except Exception as e:
         logger.error(f"Error getting tasks by employee: {e}")
         return []
@@ -282,7 +287,7 @@ async def update_task_status(task_id: str, new_status: str):
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
             
-        return format_task(updated_task)
+        return await format_task(updated_task)
     except Exception as e:
         logger.error(f"Error updating task status: {e}")
         return None
@@ -314,7 +319,7 @@ async def update_task_progress(task_id: str, new_progress: float):
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
 
-        return format_task(updated_task)
+        return await format_task(updated_task)
     except Exception as e:
         logger.error(f"Error updating task progress: {e}")
         return None
@@ -344,7 +349,7 @@ async def get_tasks_by_project(project_id: str = None):
         # Filter out None values from failed formatting
         formatted_tasks = []
         for t in raw_tasks:
-            formatted = format_task(t)
+            formatted = await format_task(t)
             if formatted:
                 formatted_tasks.append(formatted)
         
@@ -426,7 +431,7 @@ async def update_task(task_id: str, task_data: dict):
         if old_assignee and old_assignee != current_assignee:
             await recalculate_employee_progress(old_assignee)
             
-        return format_task(updated_task)
+        return await format_task(updated_task)
     except Exception as e:
         logger.error(f"Error updating task {task_id}: {e}")
         return None
@@ -495,7 +500,12 @@ async def get_current_week_tasks_by_employee(employee_id: str):
         cursor = db.tasks.find(query).sort("created_at", -1)
         
         raw_tasks = await cursor.to_list(length=100)
-        return [f for f in (format_task(t) for t in raw_tasks) if f]
+        formatted = []
+        for t in raw_tasks:
+            f = await format_task(t)
+            if f:
+                formatted.append(f)
+        return formatted
     except Exception as e:
         logger.error(f"Error getting current week tasks: {e}")
         return []
