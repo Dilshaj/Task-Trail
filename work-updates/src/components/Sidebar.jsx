@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
-import { Home, FolderKanban, Users, CheckSquare, Settings, X, LogOut, CalendarClock, FileText, ChevronLeft } from 'lucide-react';
+import { Home, FolderKanban, Users, CheckSquare, Settings, X, LogOut, CalendarClock, FileText, ChevronLeft, History } from 'lucide-react';
 import clsx from 'clsx';
 import dilshajLogo from '../pages/dilshaj-logo.jpg';
 
@@ -35,6 +35,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         // Employee Sidebar Items
         { label: 'Tasks', path: '/dashboard', icon: <CheckSquare className="h-5 w-5" />, hidden: isAdminOrTL },
+        { label: 'Task History', path: '/task-history', icon: <History className="h-5 w-5" />, hidden: isAdminOrTL },
         { label: 'Leaves', path: '/leaves', icon: <CalendarClock className="h-5 w-5" />, hidden: isAdminOrTL },
         { label: 'Offer Letter', path: '/offer-letter', icon: <FileText className="h-5 w-5" />, hidden: isAdminOrTL },
         { label: 'Attendance History', path: '/attendance-history', icon: <CalendarClock className="h-5 w-5" />, hidden: isAdminOrTL },

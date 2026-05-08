@@ -103,7 +103,7 @@ const UserDashboard = () => {
 
     const [filter, setFilter] = useState('all');
 
-    const displayTasks = showHistory ? myTasks : myWeeklyTasks;
+    const displayTasks = myWeeklyTasks;
 
     const filteredTasks = displayTasks.filter(task => {
         if (filter === 'all') return true;
@@ -582,19 +582,19 @@ const UserDashboard = () => {
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                        {showHistory ? 'Task History' : 'Current Week Tasks'}
+                        Current Week Tasks
                     </h2>
                     <p className="text-xs text-slate-500">
-                        {showHistory ? 'Showing all assigned tasks' : 'Showing tasks for the current week'}
+                        Showing tasks for the current week
                     </p>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setShowHistory(!showHistory)}
-                        className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border ${showHistory ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'}`}
+                        onClick={() => navigate('/task-history')}
+                        className="text-xs font-bold px-4 py-2 rounded-xl transition-all border bg-white dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50"
                     >
-                        {showHistory ? 'Show Current Week' : 'View History'}
+                        View Full History
                     </button>
                     
                     <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
