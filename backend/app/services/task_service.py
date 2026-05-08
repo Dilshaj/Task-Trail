@@ -38,6 +38,17 @@ def format_task(task):
         except (ValueError, TypeError):
             progress_val = 0.0
 
+        # Fetch project name if missing
+        project_name = task.get("project_name") or task.get("projectName")
+        if not project_name and task.get("project_id"):
+            try:
+                from app.db.mongo import db
+                proj = await db.projects.find_one({"_id": ObjectId(task["project_id"])})
+                if proj:
+                    project_name = proj.get("name")
+            except:
+                pass
+                
         # Build consistent response dict
         return {
             "id": task_id,
@@ -47,16 +58,14 @@ def format_task(task):
             "deadline": task.get("deadline", ""),
             "priority": task.get("priority", "Medium"),
             "status": task.get("status", "Pending"),
-            "timeline": task.get("timeline", "daily"),
-            "assignedTo": str(task.get("assigned_to")) if task.get("assigned_to") else None,
-            "assigned_to": str(task.get("assigned_to")) if task.get("assigned_to") else None,
-            "projectId": str(task.get("project_id")) if task.get("project_id") else None,
-            "project_id": str(task.get("project_id")) if task.get("project_id") else None,
+            "timeline": task.get("timeline") or task.get("type") or "daily",
+            "assignedTo": str(task.get("assigned_to") or task.get("assignedTo") or task.get("employeeId") or ""),
+            "projectId": str(task.get("project_id") or task.get("projectId") or ""),
+            "projectName": project_name or "General",
             "progress": progress_val,
-            "createdAt": task.get("created_at"),
-            "created_at": task.get("created_at"),
-            "weekStart": task.get("week_start"),
-            "weekEnd": task.get("week_end")
+            "createdAt": task.get("created_at") or task.get("createdAt"),
+            "weekStart": task.get("week_start") or task.get("weekStart"),
+            "weekEnd": task.get("week_end") or task.get("weekEnd")
         }
     except Exception as e:
         logger.error(f"Error formatting task: {str(e)}")
@@ -238,7 +247,14 @@ async def get_tasks_by_employee(employee_id: str):
         except:
             pass
             
-        cursor = db.tasks.find({"assigned_to": {"$in": list(set(match_ids))}}).sort("created_at", -1)
+        query = {
+            "$or": [
+                {"assigned_to": {"$in": list(set(match_ids))}},
+                {"assignedTo": {"$in": list(set(match_ids))}},
+                {"employeeId": {"$in": list(set(match_ids))}}
+            ]
+        }
+        cursor = db.tasks.find(query).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=100)
         # Filter out None values from failed formatting
         return [f for f in (format_task(t) for t in raw_tasks) if f]
@@ -437,11 +453,46 @@ async def get_current_week_tasks_by_employee(employee_id: str):
             pass
 
         now = datetime.utcnow()
-        cursor = db.tasks.find({
-            "assigned_to": {"$in": list(set(match_ids))},
-            "week_start": {"$lte": now},
-            "week_end": {"$gte": now}
-        }).sort("created_at", -1)
+        week_start, week_end = get_week_range(now)
+        
+        query = {
+            "$and": [
+                {
+                    "$or": [
+                        {"assigned_to": {"$in": list(set(match_ids))}},
+                        {"assignedTo": {"$in": list(set(match_ids))}},
+                        {"employeeId": {"$in": list(set(match_ids))}}
+                    ]
+                },
+                {
+                    "$or": [
+                        # Case 1: Tasks with explicit week range
+                        {"$and": [
+                            {"week_start": {"$lte": now}},
+                            {"week_end": {"$gte": now}}
+                        ]},
+                        # Case 2: Tasks with week_start/week_end as camelCase
+                        {"$and": [
+                            {"weekStart": {"$lte": now}},
+                            {"weekEnd": {"$gte": now}}
+                        ]},
+                        # Case 3: Tasks without week range, fallback to createdAt
+                        {"$and": [
+                            {"week_start": {"$exists": False}},
+                            {"weekStart": {"$exists": False}},
+                            {"created_at": {"$gte": week_start, "$lte": week_end}}
+                        ]},
+                        # Case 4: createdAt as camelCase
+                        {"$and": [
+                            {"week_start": {"$exists": False}},
+                            {"weekStart": {"$exists": False}},
+                            {"createdAt": {"$gte": week_start, "$lte": week_end}}
+                        ]}
+                    ]
+                }
+            ]
+        }
+        cursor = db.tasks.find(query).sort("created_at", -1)
         
         raw_tasks = await cursor.to_list(length=100)
         return [f for f in (format_task(t) for t in raw_tasks) if f]

@@ -103,11 +103,48 @@ const UserDashboard = () => {
 
     const [filter, setFilter] = useState('all');
 
-    const displayTasks = myWeeklyTasks;
+    // 🔥 PRECISE WEEK SYNC: Monday 00:00:00 to Sunday 23:59:59
+    const getWeekBoundaries = (date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        const start = new Date(d.setDate(diff));
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+    };
 
-    const filteredTasks = displayTasks.filter(task => {
+    const { start: currentWeekStart, end: currentWeekEnd } = getWeekBoundaries(new Date());
+
+    const filteredTasks = tasks.filter(task => {
+        // 1. Ownership Check
+        const assignedId = (task.assignedTo || '').toLowerCase().trim();
+        const isMine = assignedId === userId || (employeeId && assignedId === employeeId);
+        if (!isMine) return false;
+
+        // 2. Active Check: Must NOT be completed (Completed tasks move to History)
+        if (task.status === 'Completed') return false;
+
+        // 3. Precise Week Check
+        const taskWeekStart = task.weekStart ? new Date(task.weekStart) : null;
+        const taskWeekEnd = task.weekEnd ? new Date(task.weekEnd) : null;
+        const taskCreatedAt = task.createdAt ? new Date(task.createdAt) : null;
+
+        let isInCurrentWeek = false;
+        if (taskWeekStart && taskWeekEnd) {
+            // If task has explicit week bounds, check if they overlap with current week
+            isInCurrentWeek = taskWeekStart <= currentWeekEnd && taskWeekEnd >= currentWeekStart;
+        } else if (taskCreatedAt) {
+            // Fallback: check if createdAt is within current week boundaries
+            isInCurrentWeek = taskCreatedAt >= currentWeekStart && taskCreatedAt <= currentWeekEnd;
+        }
+
+        if (!isInCurrentWeek) return false;
+
+        // 4. Timeline Filter
         if (filter === 'all') return true;
-        if (filter === 'completed') return task.status === 'Completed';
         return task.timeline && task.timeline.toLowerCase() === filter.toLowerCase();
     });
 
@@ -582,23 +619,16 @@ const UserDashboard = () => {
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                        Current Week Tasks
+                        Active Tasks
                     </h2>
                     <p className="text-xs text-slate-500">
-                        Showing tasks for the current week
+                        Showing active tasks for the current week
                     </p>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => navigate('/task-history')}
-                        className="text-xs font-bold px-4 py-2 rounded-xl transition-all border bg-white dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50"
-                    >
-                        View Full History
-                    </button>
-                    
                     <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
-                        {['all', 'daily', 'weekly', 'completed'].map(f => (
+                        {['all', 'daily', 'weekly'].map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
