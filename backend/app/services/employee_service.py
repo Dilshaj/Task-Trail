@@ -80,6 +80,14 @@ def format_employee(emp):
     work_prog = float(emp.get("work_progress_perc") or 0.0)
     overall_prog = float(emp.get("overall_progress_perc") or 0.0)
     
+    def format_date(dt):
+        if not dt: return None
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return str(dt)
+
+    joining_date_val = format_date(emp.get("joining_date") or emp.get("created_at"))
+    
     return {
         "id": str(emp.get("_id")),
         "_id": str(emp.get("_id")),
@@ -102,14 +110,14 @@ def format_employee(emp):
         
         "isCheckedIn": emp.get("is_checked_in", False),
         "is_checked_in": emp.get("is_checked_in", False),
-        "lastCheckIn": emp.get("last_check_in"),
-        "lastCheckOut": emp.get("last_check_out"),
+        "lastCheckIn": format_date(emp.get("last_check_in")),
+        "lastCheckOut": format_date(emp.get("last_check_out")),
         
-        "createdAt": emp.get("created_at"),
-        "created_at": emp.get("created_at"),
-        "updatedAt": emp.get("updated_at"),
-        "joiningDate": emp.get("joining_date"),
-        "joining_date": emp.get("joining_date")
+        "createdAt": format_date(emp.get("created_at")),
+        "created_at": format_date(emp.get("created_at")),
+        "updatedAt": format_date(emp.get("updated_at")),
+        "joiningDate": joining_date_val,
+        "joining_date": joining_date_val
     }
 
 async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None):
