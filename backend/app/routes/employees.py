@@ -37,6 +37,25 @@ async def search_employees(
     employee = await employee_service.search_employee(employee_id, name)
     return employee
 
+@router.get("/me", response_model=EmployeeResponse)
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
+    """
+    Returns the authenticated employee's own profile with all fields including
+    manual_progress_override and progress percentages set by Team Lead.
+    No project isolation check since the employee is fetching their own data.
+    """
+    # current_user is the raw MongoDB document from get_current_user
+    emp_id_str = str(current_user.get("_id"))
+    employee = await employee_service.get_employee_by_id(emp_id_str)
+    if not employee:
+        # Fallback: try with employee_id string (e.g. "2026999")
+        emp_id_field = current_user.get("employee_id")
+        if emp_id_field:
+            employee = await employee_service.get_employee_by_employee_id(str(emp_id_field))
+    if not employee:
+        raise HTTPException(status_code=404, detail="Your profile was not found")
+    return employee
+
 @router.get("/{id}", response_model=EmployeeResponse)
 async def get_employee(id: str):
     employee = await employee_service.get_employee_by_id(id)
@@ -44,6 +63,20 @@ async def get_employee(id: str):
          employee = await employee_service.get_employee_by_employee_id(id)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
+<<<<<<< Updated upstream
+=======
+
+    # Allow self-lookup without project access check
+    current_emp_id = str(current_user.get("employee_id", ""))
+    found_emp_id = str(employee.get("employeeId") or employee.get("employee_id") or "")
+    is_self_lookup = (
+        str(current_user.get("_id")) == str(employee.get("id") or employee.get("_id") or "") or
+        (current_emp_id and current_emp_id == found_emp_id)
+    )
+    if not is_self_lookup and enforced_project_id:
+        verify_project_access(current_user, employee.get("projectId"))
+        
+>>>>>>> Stashed changes
     return employee
 
 @router.put("/{id}", response_model=EmployeeResponse)

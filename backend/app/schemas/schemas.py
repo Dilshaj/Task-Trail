@@ -54,6 +54,8 @@ class EmployeeResponse(UserResponse):
     overallProgress: float = 0.0
     dailyProgress: float = 0.0
     weeklyProgress: float = 0.0
+    manual_progress_override: Optional[bool] = False
+    manualProgressOverride: Optional[bool] = False
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
 

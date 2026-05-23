@@ -119,3 +119,12 @@ export const deleteEmployee = async (employeeId) => {
         throw new Error(detail);
     }
 };
+
+export const getEmployeeById = async (id) => {
+    try {
+        const res = await api.get(`employees/${id}`);
+        return res.data;
+    } catch {
+        return null;
+    }
+};

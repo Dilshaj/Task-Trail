@@ -50,6 +50,11 @@ async def recalculate_employee_progress(employee_id: str):
             logger.info(f"⏭️ Skipping auto-sync for {employee_id} (Manual Override Active)")
             return
 
+        # If manual progress is overridden by Team Lead/Admin, skip auto-recalculation
+        if emp.get("manual_progress_override") is True:
+            logger.info(f"Skipping auto-sync for employee {emp_id_str} due to manual_progress_override.")
+            return
+
         # 2. Fetch all tasks for this employee
         cursor = db.tasks.find({"assigned_to": employee_id})
         all_tasks = await cursor.to_list(length=1000)
