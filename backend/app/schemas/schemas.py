@@ -8,6 +8,10 @@ class LoginRequest(BaseModel):
     employee_id: Optional[str] = None
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class Token(BaseModel):
     token: str
     token_type: str = "bearer"
@@ -20,6 +24,8 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     avatar: Optional[str] = None
     projectId: Optional[str] = None
+    joiningDate: Optional[str] = None
+    joining_date: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -42,8 +48,11 @@ class ProjectResponse(BaseModel):
 class EmployeeCreate(BaseModel):
     employee_id: str
     name: str
-    role: str = "user"
+    role: str = "EMPLOYEE"
     project_id: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    joining_date: Optional[str] = None
 
 class EmployeeProgressUpdate(BaseModel):
     work_progress_perc: float
@@ -64,10 +73,13 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     deadline: Optional[str] = None
     priority: str = "Medium"
-    timeline: str = "daily"
+    timeline: str = Field(alias="type", default="daily")
     assignedTo: str
     projectId: str
     progress: Optional[float] = 0.0
+
+    class Config:
+        populate_by_name = True
 
 class TaskStatusUpdate(BaseModel):
     status: str
@@ -82,8 +94,11 @@ class TaskResponse(BaseModel):
     timeline: Optional[str] = "daily"
     assignedTo: Optional[str] = None
     projectId: Optional[str] = None
+    projectName: Optional[str] = ""
     progress: Optional[float] = 0.0
     createdAt: Optional[datetime] = None
+    weekStart: Optional[datetime] = None
+    weekEnd: Optional[datetime] = None
 
 class CheckInRequest(BaseModel):
     employee_id: Optional[str] = Field(alias="employeeId", default=None)
@@ -91,9 +106,13 @@ class CheckInRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location_name: Optional[str] = None
+    face_descriptor: Optional[List[float]] = None
 
     class Config:
         populate_by_name = True
+
+class FaceRegisterRequest(BaseModel):
+    face_descriptor: List[float]
 
 class AttendanceResponse(BaseModel):
     id: Optional[str] = None
@@ -121,6 +140,7 @@ class LeaveRequestCreate(BaseModel):
     from_date: str
     to_date: str
     reason: str
+    project_id: Optional[str] = None
 
 class LeaveRequestResponse(BaseModel):
     id: Optional[str] = None
@@ -131,6 +151,7 @@ class LeaveRequestResponse(BaseModel):
     toDate: str = ""
     reason: Optional[str] = None
     status: Optional[str] = "Pending"
+    projectId: Optional[str] = None
     createdAt: Optional[datetime] = None
 
 class OfferLetterCreate(BaseModel):
@@ -174,9 +195,22 @@ class EmployeeUpdate(BaseModel):
     project_id: Optional[str] = None
     avatar: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
+    joining_date: Optional[str] = None
 
 class DashboardMetricsResponse(BaseModel):
     activeProjects: int
     totalTasks: int
     completedTasks: int
     activeEmployees: int
+
+class NotificationResponse(BaseModel):
+    id: Optional[str] = None
+    employee_id: str
+    message: str
+    type: str  # 'task', 'leave'
+    read: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

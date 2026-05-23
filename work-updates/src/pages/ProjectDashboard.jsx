@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import { useTasks } from '../context/TaskContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
@@ -11,9 +12,14 @@ import { getAdminMetrics } from '../services/dashboardService';
 
 const ProjectDashboard = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { projects } = useProjects();
     const { employees, tasks, addEmployee, refreshEmployees } = useTasks();
     const { selectedProjectId, selectedProject } = useProjectFilter();
+
+    const role = user?.role?.toUpperCase();
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
+    const isTeamLead = role === 'TEAM_LEAD';
 
     // ... stats logic ...
 
@@ -26,7 +32,7 @@ const ProjectDashboard = () => {
     });
     const [loadingMetrics, setLoadingMetrics] = useState(true);
 
-    const projectId = selectedProjectId || localStorage.getItem('selected_project_id');
+    const projectId = selectedProjectId || sessionStorage.getItem('selected_project_id');
 
     useEffect(() => {
         if (!projectId) {
@@ -76,14 +82,18 @@ const ProjectDashboard = () => {
     return (
         <Layout>
             <div className="mb-6 flex items-center gap-4 animate-fade-in-up">
-                <button
-                    onClick={() => navigate('/admin')}
-                    className="rounded-full p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors hover:-translate-x-1"
-                >
-                    <ArrowLeft className="h-5 w-5" />
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => navigate('/admin')}
+                        className="rounded-full p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors hover:-translate-x-1"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                    </button>
+                )}
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                    {project ? `Current Project: ${project.name}` : "Please select a project"}
+                    {selectedProject 
+                        ? `Project: ${selectedProject.name}` 
+                        : (selectedProjectId ? `Loading project details...` : "Select a Project")}
                 </h2>
             </div>
 
@@ -184,22 +194,14 @@ const ProjectDashboard = () => {
                                     <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{task.title}</h4>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors duration-300 ${
                                         (() => {
-                                            const displayProgress = task.timeline === 'daily' 
-                                                ? (assignedTo?.dailyProgress || 0) 
-                                                : task.timeline === 'weekly' 
-                                                    ? (assignedTo?.weeklyProgress || 0) 
-                                                    : (task.progress || 0);
+                                            const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                             return displayProgress >= 100
                                                 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
                                                 : 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30';
                                         })()
                                     }`}>
                                         {(() => {
-                                            const displayProgress = task.timeline === 'daily' 
-                                                ? (assignedTo?.dailyProgress || 0) 
-                                                : task.timeline === 'weekly' 
-                                                    ? (assignedTo?.weeklyProgress || 0) 
-                                                    : (task.progress || 0);
+                                            const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                             return `${displayProgress}%`;
                                         })()}
                                     </span>

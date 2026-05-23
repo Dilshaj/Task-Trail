@@ -42,42 +42,48 @@ def create_refresh_token(data: dict):
 
 async def authenticate_user(identifier: str, password: str):
     """
-    🚀 Authenticates user via MongoDB Atlas with Robust Field Matching.
+    Authenticates user via MongoDB Atlas with Robust Field Matching.
     """
     if db.db is None:
-        logger.warning(f"❌ AUTH TRACE: Database not connected for login attempt [{identifier}]")
+        logger.warning(f"AUTH TRACE: Database not connected for login attempt [{identifier}]")
         return None
     try:
         clean_id = identifier.strip()
-        logger.info(f"🕵️ AUTH TRACE: Login attempt for [{clean_id}]")
+        logger.info(f"AUTH TRACE: Login attempt for [{clean_id}]")
 
+        import re
+        escaped_id = re.escape(clean_id)
         user = await db.employees.find_one({
             "$or": [
-                {"email": {"$regex": f"^{clean_id}$", "$options": "i"}},
+                {"email": {"$regex": f"^{escaped_id}$", "$options": "i"}},
                 {"employee_id": clean_id}
             ]
         })
 
         if not user:
-            cols = await db.db.list_collection_names()
-            logger.warning(f"❌ AUTH TRACE: User [{clean_id}] not found in DB [{db.db_name}]. Collections: {cols}")
+            logger.warning(f"AUTH TRACE: User [{clean_id}] NOT FOUND in DB.")
             return None
+        
+        logger.info(f"AUTH TRACE: User [{clean_id}] FOUND in DB. Role: {user.get('role')}")
 
-        # 🛡️ Robust check: Support both 'password_hash' and 'password' keys
+        # Robust check: Support both 'password_hash' and 'password' keys
         stored_hash = user.get("password_hash") or user.get("password")
         
         if not stored_hash:
-            logger.error(f"❌ AUTH TRACE: No password field found for {clean_id}")
+            logger.error(f"AUTH TRACE: No password field found for {clean_id}")
             return None
 
         # Verify password
-        if verify_password(password, stored_hash):
-            logger.info(f"✅ AUTH TRACE: User [{clean_id}] authenticated.")
+        is_match = verify_password(password, stored_hash)
+        logger.info(f"AUTH TRACE: Password match result for [{clean_id}]: {is_match}")
+
+        if is_match:
+            logger.info(f"AUTH TRACE: User [{clean_id}] authenticated successfully.")
             return user
         else:
-            logger.warning(f"⚠️ AUTH TRACE: Password mismatch for [{clean_id}].")
+            logger.warning(f"AUTH TRACE: Password mismatch for [{clean_id}].")
             return None
 
     except Exception as e:
-        logger.error(f"💥 AUTH TRACE ERROR: {str(e)}")
+        logger.error(f"AUTH TRACE ERROR: {str(e)}")
         return None

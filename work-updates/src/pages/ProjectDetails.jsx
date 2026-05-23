@@ -75,22 +75,14 @@ const ProjectDetails = () => {
                                         <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">Completed: {task.title}</h4>
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase transition-colors duration-300 ${
                                             (() => {
-                                                const displayProgress = task.timeline === 'daily' 
-                                                    ? (assignedTo?.dailyProgress || 0) 
-                                                    : task.timeline === 'weekly' 
-                                                        ? (assignedTo?.weeklyProgress || 0) 
-                                                        : (task.progress || 0);
+                                                const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                                 return displayProgress >= 100
                                                     ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
                                                     : 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30';
                                             })()
                                         }`}>
                                             {(() => {
-                                                const displayProgress = task.timeline === 'daily' 
-                                                    ? (assignedTo?.dailyProgress || 0) 
-                                                    : task.timeline === 'weekly' 
-                                                        ? (assignedTo?.weeklyProgress || 0) 
-                                                        : (task.progress || 0);
+                                                const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                                 return `${displayProgress}%`;
                                             })()}
                                         </span>

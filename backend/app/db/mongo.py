@@ -8,6 +8,12 @@ logger = logging.getLogger(__name__)
 
 class MongoDB:
     def __init__(self):
+        # Marker to verify this code is running
+        try:
+            with open("CODE_IS_RUNNING.txt", "w") as f:
+                f.write(f"Running from: {os.getcwd()}\nTime: {datetime.now()}")
+        except:
+            pass
         self.client: AsyncIOMotorClient = None
         self.db = None
         self.uri = os.getenv("MONGO_URI")
@@ -16,49 +22,66 @@ class MongoDB:
     def connect(self):
         """Initializes the MongoDB connection client and database."""
         if not self.uri:
-            logger.warning("MONGO_URI not found in .env! MongoDB will not connect.")
-            return
-        self.client = AsyncIOMotorClient(self.uri)
-        self.db = self.client[self.db_name]
-        masked_uri = self.uri[:15] + "..." if self.uri else "None"
-        logger.info(f"Connecting to MongoDB with URI: {masked_uri}")
-        logger.info(f"Company MongoDB connected: {self.db_name}")
+            load_dotenv()
+            self.uri = os.getenv("MONGO_URI")
+            self.db_name = os.getenv("DB_NAME", "worksheet_db")
+            
+        if self.uri:
+            self.client = AsyncIOMotorClient(self.uri)
+            self.db = self.client[self.db_name]
+            logger.info(f"✅ MongoDB connected: {self.db_name}")
 
     def close(self):
         """Closes the MongoDB connection."""
         if self.client:
             self.client.close()
-            logger.info("Company MongoDB connection closed")
+            logger.info("❌ MongoDB connection closed")
+
+    def ensure_connected(self):
+        """Internal helper to ensure db is initialized."""
+        if self.db is None:
+            self.connect()
 
     # Property helpers - Mapping to your specific collection names
     @property
     def employees(self):
-        # Pointing to the Capitalized collection in your screenshot
-        return self.db.Employees
+        self.ensure_connected()
+        return self.db.Employees if self.db is not None else None
 
     @property
     def attendance(self):
-        return self.db.Attendance
+        self.ensure_connected()
+        return self.db.Attendance if self.db is not None else None
 
     @property
     def tasks(self):
-        return self.db.Tasks
+        self.ensure_connected()
+        return self.db.Tasks if self.db is not None else None
         
     @property
     def projects(self):
-        return self.db.Projects
+        self.ensure_connected()
+        return self.db.Projects if self.db is not None else None
 
     @property
     def offers(self):
-        return self.db.Offers
+        self.ensure_connected()
+        return self.db.Offers if self.db is not None else None
 
     @property
     def leaves(self):
-        return self.db.Leaves
+        self.ensure_connected()
+        return self.db.Leaves if self.db is not None else None
 
     @property
     def pay_slips(self):
-        return self.db.PaySlips
+        self.ensure_connected()
+        return self.db.PaySlips if self.db is not None else None
+
+    @property
+    def notifications(self):
+        self.ensure_connected()
+        return self.db.Notifications if self.db is not None else None
 
 # Initialize the engine instance
 db = MongoDB()

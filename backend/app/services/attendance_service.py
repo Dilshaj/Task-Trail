@@ -5,6 +5,7 @@ import logging
 import json
 import pandas as pd
 import io
+import math
 from urllib.request import Request, urlopen
 from fastapi import HTTPException
 
@@ -103,14 +104,30 @@ def _ip_lookup(ip_address: str) -> tuple:
         
     return None, None
 
-async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None):
+def _calculate_euclidean_distance(v1: list, v2: list) -> float:
+    """Calculates the Euclidean distance between two vectors."""
+    if not v1 or not v2 or len(v1) != len(v2):
+        return float('inf')
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(v1, v2)))
+
+async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id: str = None):
     """Fetches all logs from MongoDB with strict project isolation."""
     if db.db is None:
         return []
     try:
         query = {}
         
-        if project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
+        if employee_id:
+            emp_id_clean = str(employee_id).strip()
+            # Support both string and integer IDs just in case
+            id_variants = [emp_id_clean]
+            try:
+                id_variants.append(int(emp_id_clean))
+            except:
+                pass
+            query["employee_id"] = {"$in": id_variants}
+            logger.info(f"[ATTENDANCE] Querying with variants: {id_variants}")
+        elif project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
             # Direct Project Isolation: Only show logs belonging to this project
             pids = [str(project_id)]
             try: pids.append(ObjectId(project_id))
@@ -120,11 +137,13 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
             logger.info(f"[ATTENDANCE] Filtering logs strictly for project_id: {project_id}")
         else:
             # Global Admin View: Return ALL logs if no project_id is specified
-            logger.info("[ATTENDANCE] No project_id provided. Returning ALL logs for Admin view.")
+            logger.info("[ATTENDANCE] No project_id/employee_id provided. Returning ALL logs for Admin view.")
 
         # 1. Fetch logs
+        logger.info(f"[ATTENDANCE] Final Query: {query}")
         cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
         logs = await cursor.to_list(limit)
+        logger.info(f"[ATTENDANCE] Found {len(logs)} raw logs for query: {query}")
         
         if not logs:
             return []
@@ -199,34 +218,50 @@ async def check_in(
     location_name: str = None,
     location_source: str = None,
     location_accuracy: float = None,
+    face_descriptor: list = None,
     request_meta: dict = None
 ):
-    """Uses insert_one to create a new attendance log with GPS-first, IP-fallback logic."""
+    """
+    Strict Check-In:
+    1. Time must be between 8:00 AM and 7:00 PM IST.
+    2. GPS coordinates (lat/lng) are MANDATORY.
+    3. IP-based fallback is disabled.
+    """
     if db.db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
+        
     try:
+        # Time Check (IST: UTC+5:30)
+        now_utc = datetime.now(timezone.utc)
+        now_ist = now_utc + timedelta(hours=5, minutes=30)
+        current_hour = now_ist.hour
+        
+        if current_hour < 8:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-in not started. Standard check-in time begins at 8:00 AM."
+            )
+        if current_hour >= 19:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-in is blocked after 7:00 PM."
+            )
+
         current_date, current_time = get_current_timestamps()
         lat = _safe_float(latitude)
         lng = _safe_float(longitude)
         accuracy = _safe_float(location_accuracy)
         source = location_source or "gps"
 
-        # 1. GPS Logic: If coordinates are missing, try IP fallback
+        # Mandatory GPS Check (No IP Fallback)
         if lat is None or lng is None:
-            logger.info(f"[ATTENDANCE] No GPS coordinates provided for {employee_id}. Falling back to IP.")
-            ip_addr = _resolve_ip_from_request_meta(request_meta or {})
-            lat, lng = _ip_lookup(ip_addr)
-            source = "ip"
-            accuracy = None # IP accuracy is unknown/broad
-            
-            if lat is None or lng is None:
-                logger.error(f"[ATTENDANCE] Both GPS and IP lookup failed for {employee_id}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Unable to determine location. Please enable GPS or check your internet connection."
-                )
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} attempted check-in without GPS.")
+            raise HTTPException(
+                status_code=400, 
+                detail="Location permission is required to check in. Please enable GPS."
+            )
 
-        # 2. Reverse Geocode to get a human-readable address
+        # 3. Reverse Geocode to get a human-readable address
         resolved_location_name = _reverse_geocode(lat, lng)
         
         # 3. Logging
@@ -235,7 +270,41 @@ async def check_in(
             f"lat={lat} lng={lng} accuracy={accuracy} address='{resolved_location_name}'"
         )
         
-        # 4. Check for existing active check-in
+        # 4. Face Verification (STRICT)
+        user = await db.employees.find_one({"employee_id": employee_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="Employee record not found")
+
+        stored_encoding = user.get("face_encoding")
+        
+        if not stored_encoding:
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} has no registered face.")
+            raise HTTPException(
+                status_code=403,
+                detail="Face not registered. Please go to Profile and register your face first."
+            )
+            
+        if not face_descriptor:
+            logger.warning(f"REJECTED CHECK-IN: Employee {employee_id} provided no face capture.")
+            raise HTTPException(
+                status_code=400,
+                detail="Face verification is mandatory for check-in."
+            )
+
+        # Compare descriptors
+        distance = _calculate_euclidean_distance(face_descriptor, stored_encoding)
+        logger.info(f"[FACE AUTH] Employee {employee_id} distance: {distance:.4f}")
+
+        if distance > 0.6:
+            logger.warning(f"REJECTED CHECK-IN: Face mismatch for {employee_id} (distance={distance:.4f})")
+            raise HTTPException(
+                status_code=403,
+                detail="Face not recognized. Please ensure your face is clearly visible and try again."
+            )
+
+        logger.info(f"[FACE AUTH SUCCESS] Employee {employee_id} verified.")
+
+        # 5. Check for existing active check-in
         status = await get_active_checkin(employee_id, current_date)
         if status:
             # If already checked in, refresh live location in the existing active row.
@@ -261,8 +330,9 @@ async def check_in(
             logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
             return format_attendance(status), False
 
-        user = await db.employees.find_one({"employee_id": employee_id})
-        project_id = user.get("project_id") if user else None
+            return format_attendance(status), False
+
+        project_id = user.get("project_id")
 
         new_log = {
             "employee_id": employee_id,
@@ -285,7 +355,7 @@ async def check_in(
         new_log["userId"] = str(user.get("_id")) if user else None
         new_log["projectId"] = project_id
         
-        # 🔥 Sync status to Employee record
+        # Sync status to Employee record
         await db.employees.update_one(
             {"employee_id": employee_id},
             {"$set": {"is_checked_in": True, "last_check_in": current_time}}
@@ -314,7 +384,7 @@ async def check_out(employee_id: str):
             {"$set": {"check_out": current_time}}
         )
 
-        # 🔥 Sync status to Employee record
+        # Sync status to Employee record
         await db.employees.update_one(
             {"employee_id": employee_id},
             {"$set": {"is_checked_in": False, "last_check_out": current_time}}
@@ -338,11 +408,11 @@ async def check_out(employee_id: str):
         logger.error(f"Error during check-out: {e}")
         return None
 
-async def export_attendance_to_excel():
+async def export_attendance_to_excel(project_id: str = None):
     """Generates an Excel file (in-memory) containing all attendance logs."""
     try:
         # 1. Fetch all logs using existing logic
-        logs = await get_all_attendance(limit=10000) # Get a large batch
+        logs = await get_all_attendance(limit=10000, project_id=project_id) # Get a large batch
         
         if not logs:
             # Create an empty dataframe with columns if no data

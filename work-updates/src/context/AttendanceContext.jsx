@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useCallback, use
 import { getAttendanceLogs, checkIn, checkOut } from '../services/attendanceService';
 import { useAuth } from './AuthContext';
 import { useProjectFilter } from './ProjectFilterContext';
+import FaceVerificationModal from '../components/FaceVerificationModal';
 
 const AttendanceContext = createContext();
 
@@ -26,6 +27,8 @@ export const AttendanceProvider = ({ children }) => {
     const [activeLog, setActiveLog] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [locationStatus, setLocationStatus] = useState(''); // '', 'Searching GPS...', 'Falling back to IP...', 'Success'
+    const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+    const [pendingCheckInData, setPendingCheckInData] = useState(null);
 
     const updatingRef = React.useRef(false);
 
@@ -36,7 +39,7 @@ export const AttendanceProvider = ({ children }) => {
         setIsUpdating(true);
         try {
             // 1. Fetch history (Ensuring project-id is passed to bypass isolation filters)
-            const isAdmin = user?.role === 'admin';
+            const isAdmin = user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'SUPER_ADMIN';
             const projId = isAdmin ? selectedProjectId : (user.projectId || user.project_id);
             const data = await getAttendanceLogs(projId);
             setLogs(data);
@@ -62,11 +65,40 @@ export const AttendanceProvider = ({ children }) => {
 
     const [loading, setLoading] = useState(false);
 
-    const handleCheckIn = async () => {
+    const handleCheckIn = async (descriptorArg = null) => {
         if (!user || loading) return;
+
+        // 🛡️ Prevent circular JSON error: 
+        // If handleCheckIn is called directly from onClick, the first arg is an event object.
+        // We detect this and reset faceDescriptor to null so the modal opens.
+        const isEvent = descriptorArg && (descriptorArg.nativeEvent || descriptorArg instanceof Event);
+        const faceDescriptor = isEvent ? null : descriptorArg;
+
+        // If no face descriptor provided, open the modal first
+        if (!faceDescriptor) {
+            setIsFaceModalOpen(true);
+            return;
+        }
+
         setLoading(true);
         
         const empId = user.employee_id || user.employeeId;
+
+        // 🕒 1. Strict Time Check (IST: UTC+5:30)
+        const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+        const ist = new Date(utc + (3600000 * 5.5));
+        const hour = ist.getHours();
+        
+        if (hour < 8) {
+            alert("Check-in not started. Standard check-in time begins at 8:00 AM.");
+            setLoading(false);
+            return;
+        }
+        if (hour >= 19) {
+            alert("Check-in period has ended for today (after 7:00 PM).");
+            setLoading(false);
+            return;
+        }
 
         let latitude = null;
         let longitude = null;
@@ -220,15 +252,10 @@ export const AttendanceProvider = ({ children }) => {
             
             if (coords?.error) {
                 if (coords.error === 'redirecting_https') return;
-                console.warn("⚠️ GPS unavailable, switching to IP fallback:", coords.error);
-                setLocationStatus('GPS Blocked. Falling back to IP...');
-                const ipCoords = await getIPLocation();
-                if (ipCoords) {
-                    coords = ipCoords;
-                    locationName = [ipCoords.city, ipCoords.region].filter(Boolean).join(', ');
-                } else {
-                    throw new Error('Unable to capture location from GPS or IP. Please check location and internet permissions.');
-                }
+                
+                // 📍 REJECT: Mandatory GPS Check (No IP Fallback)
+                console.warn("🚨 Check-in rejected: GPS unavailable/denied:", coords.error);
+                throw new Error('Location permission is required to check in. Please enable GPS and try again.');
             } else {
                 setLocationStatus('GPS Fix Found! Resolving address...');
             }
@@ -279,7 +306,8 @@ export const AttendanceProvider = ({ children }) => {
             setLocationStatus('Finalizing check-in...');
             const payload = {
                 employeeId: empId,
-                location_name: locationName || 'Auto-detected Location'
+                location_name: locationName || 'Auto-detected Location',
+                face_descriptor: faceDescriptor
             };
             if (latitude !== null) payload.latitude = Number(latitude);
             if (longitude !== null) payload.longitude = Number(longitude);
@@ -305,18 +333,20 @@ export const AttendanceProvider = ({ children }) => {
             setLocationStatus('Error');
             const msg = error.message || '';
 
-            // Fallback: handle old-style 'already' errors just in case
-            if (msg.toLowerCase().includes('already')) {
+            // 🛡️ Handle 403 Forbidden (Missing Biometrics)
+            if (msg.includes('Face not registered')) {
+                alert("🔒 Biometric Registration Required\n\nYou haven't registered your face yet. Please go to your Profile and click 'Register My Face' to enable attendance features.");
+            } else if (msg.toLowerCase().includes('already')) {
+                // Fallback: handle old-style 'already' errors just in case
                 await fetchLogs(true);
-                setTimeout(() => setLocationStatus(''), 2000);
-                return;
+            } else {
+                // Only alert on genuine failures
+                const display = (msg.includes('[object Object]') || !msg)
+                    ? 'A connection error occurred. Please try again.'
+                    : msg;
+                alert(display);
             }
-
-            // Only alert on genuine failures
-            const display = (msg.includes('[object Object]') || !msg)
-                ? 'A connection error occurred. Please try again.'
-                : msg;
-            alert(display);
+            
             setTimeout(() => setLocationStatus(''), 2000);
         } finally {
             setLoading(false);
@@ -356,10 +386,10 @@ export const AttendanceProvider = ({ children }) => {
         // Immediate sync on tab focus (Throttled to once every 5s)
         const handleFocus = () => {
             const now = Date.now();
-            if (now - lastSyncRef.current < 5000) return; 
+            if (now - lastSyncRef.current < 15000) return; // 🚀 Increased throttle (15s)
             lastSyncRef.current = now;
             
-            console.log("🔦 Tab focused - triggering immediate sync");
+            // Background sync on tab focus
             fetchLogs(true);
         };
 
@@ -392,6 +422,14 @@ export const AttendanceProvider = ({ children }) => {
     return (
         <AttendanceContext.Provider value={value}>
             {children}
+            <FaceVerificationModal 
+                isOpen={isFaceModalOpen}
+                onClose={() => setIsFaceModalOpen(false)}
+                onVerified={(descriptor) => {
+                    setIsFaceModalOpen(false);
+                    handleCheckIn(descriptor);
+                }}
+            />
         </AttendanceContext.Provider>
     );
 };

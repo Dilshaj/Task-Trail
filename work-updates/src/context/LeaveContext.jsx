@@ -17,7 +17,10 @@ export const LeaveProvider = ({ children }) => {
             if (!user) return;
 
             let data = [];
-            if (user.role === 'admin') {
+            const role = user.role?.toUpperCase();
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            
+            if (canManage) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 const empId = user.employee_id || user.employeeId;
@@ -28,14 +31,15 @@ export const LeaveProvider = ({ children }) => {
 
             const mappedData = data.map(l => ({
                 id: l.id,
-                userId: (l.employee_id || l.employeeId),
-                userName: (l.userName || l.employee_id || l.employeeId),
-                type: (l.leave_type || l.type),
-                startDate: (l.from_date || l.startDate),
-                endDate: (l.to_date || l.endDate),
+                userId: (l.employeeId || l.employee_id),
+                userName: (l.userName || l.employeeId || l.employee_id),
+                type: (l.leaveType || l.leave_type || l.type),
+                startDate: (l.fromDate || l.from_date || l.startDate),
+                endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
-                appliedAt: (l.created_at || l.createdAt)
+                projectId: l.projectId || l.project_id,
+                appliedAt: (l.createdAt || l.created_at)
             }));
 
             setLeaves(mappedData);
@@ -62,7 +66,10 @@ export const LeaveProvider = ({ children }) => {
 
             // 2. Fetch fresh data
             let data = [];
-            if (user.role === 'admin') {
+            const role = user.role?.toUpperCase();
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            
+            if (canManage) {
                 data = await getAllLeaves(selectedProjectId);
             } else {
                 data = await getMyLeaves(empId);
@@ -70,14 +77,15 @@ export const LeaveProvider = ({ children }) => {
 
             const mappedData = data.map(l => ({
                 id: l.id,
-                userId: (l.employee_id || l.employeeId),
-                userName: (l.userName || l.employee_id || l.employeeId),
-                type: (l.leave_type || l.type),
-                startDate: (l.from_date || l.startDate),
-                endDate: (l.to_date || l.endDate),
+                userId: (l.employeeId || l.employee_id),
+                userName: (l.userName || l.employeeId || l.employee_id),
+                type: (l.leaveType || l.leave_type || l.type),
+                startDate: (l.fromDate || l.from_date || l.startDate),
+                endDate: (l.toDate || l.to_date || l.endDate),
                 reason: l.reason,
                 status: l.status,
-                appliedAt: (l.created_at || l.createdAt)
+                projectId: l.projectId || l.project_id,
+                appliedAt: (l.createdAt || l.created_at)
             }));
             setLeaves(mappedData);
         } catch (error) {

@@ -10,9 +10,10 @@ export const getTasks = async (projectId = null) => {
     } catch { return []; }
 };
 
-export const getTasksByEmployee = async (userId) => {
+export const getTasksByEmployee = async (userId, currentWeek = false) => {
     try {
-        const res = await api.get(`tasks/employee/${userId}`);
+        const params = currentWeek ? { current_week: true } : {};
+        const res = await api.get(`tasks/employee/${userId}`, { params });
         return res.data;
     } catch { return []; }
 };
@@ -52,6 +53,15 @@ export const updateTaskProgress = async (id, progress) => {
     }
 };
 
+export const adminUpdateTask = async (id, taskData) => {
+    try {
+        const res = await api.put(`direct-task-update/${id}`, taskData);
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.detail || 'Failed to update task');
+    }
+};
+
 // ─── Employees ───────────────────────────────────────────
 export const getEmployees = async (projectId = null) => {
     try {
@@ -84,6 +94,7 @@ export const addEmployee = async (employee) => {
         name: employee.name,
         role: employee.role,
         project_id: employee.projectId,
+        joining_date: employee.joining_date,
     });
     return res.data;
 };

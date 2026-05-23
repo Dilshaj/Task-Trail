@@ -6,6 +6,7 @@ import { Bell, Search, Menu, X, Users, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
 import dilshajLogo from '../pages/dilshaj-logo.jpg';
+import { NotificationBell } from './NotificationBell';
 
 const Navbar = ({ onMenuClick }) => {
     const { user, logout } = useAuth();
@@ -19,7 +20,10 @@ const Navbar = ({ onMenuClick }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const searchContainerRef = useRef(null);
-    const isAdmin = user?.role === 'admin';
+    const role = user?.role?.toUpperCase();
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
+    const isTeamLead = role === 'TEAM_LEAD';
+    const isAdminOrTL = isSuperAdmin || isTeamLead;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -43,7 +47,7 @@ const Navbar = ({ onMenuClick }) => {
         navigate(`/admin/employee/${employee.id}?project=${employee.projectId || ''}`);
     };
 
-    const searchResults = isAdmin && employees
+    const searchResults = isAdminOrTL && employees
         ? employees
             .filter(emp => emp.name.toLowerCase().includes(searchQuery.toLowerCase()))
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -102,7 +106,7 @@ const Navbar = ({ onMenuClick }) => {
                     )}
 
                     {/* Search Dropdown */}
-                    {isDropdownOpen && isAdmin && (
+                    {isDropdownOpen && isAdminOrTL && (
                         <div className="absolute top-11 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg overflow-hidden py-1 z-50">
                             {searchResults.length > 0 ? (
                                 searchResults.map(emp => (
@@ -129,7 +133,7 @@ const Navbar = ({ onMenuClick }) => {
                 </div>
 
                 {/* Mobile Search Trigger */}
-                {!isMobileSearchOpen && isAdmin && (
+                {!isMobileSearchOpen && isAdminOrTL && (
                     <button
                         className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full sm:hidden transition micro-interaction"
                         onClick={() => setIsMobileSearchOpen(true)}
@@ -138,10 +142,7 @@ const Navbar = ({ onMenuClick }) => {
                     </button>
                 )}
 
-                <button className={`relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition micro-interaction ${isMobileSearchOpen ? 'hidden sm:block' : 'block'}`}>
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500 border border-white dark:border-slate-900"></span>
-                </button>
+                <NotificationBell />
 
                 {/* Theme Toggle Button */}
                 <button

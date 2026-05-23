@@ -4,6 +4,7 @@ from app.utils.cloudinary_utils import upload_base64_image
 from bson import ObjectId
 from datetime import datetime
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,19 @@ def format_project(project):
     }
     return formatted
 
-async def get_projects(skip: int = 0, limit: int = 100):
+async def get_projects(skip: int = 0, limit: int = 100, project_id: Optional[str] = None):
     if db.db is None:
         return []
     try:
-        cursor = db.projects.find({}).sort("created_at", -1).skip(skip).limit(limit)
+        query = {}
+        if project_id:
+            try:
+                query["_id"] = ObjectId(project_id)
+            except Exception:
+                # If project_id is invalid ObjectId, just return empty list
+                return []
+                
+        cursor = db.projects.find(query).sort("created_at", -1).skip(skip).limit(limit)
         raw_projects = await cursor.to_list(length=100)
         return [format_project(p) for p in raw_projects]
     except Exception as e:

@@ -74,16 +74,33 @@ async def get_admin_dashboard_stats(project_id: str = None):
         }
     }
 
-async def get_monthly_attendance_chart():
+async def get_monthly_attendance_chart(project_id: str = None):
     """
     Generates data for a 30-day activity chart using aggregation.
+    Filters by project if project_id is provided.
     """
     if db.db is None:
         return []
-    chart_pipeline = [
+        
+    query = {}
+    if project_id:
+        # Get all human-readable employee IDs for this project
+        project_emps = await db.employees.find({"project_id": project_id}).to_list(1000)
+        emp_ids = []
+        for e in project_emps:
+            if e.get("employee_id"): emp_ids.append(e["employee_id"])
+            emp_ids.append(str(e["_id"]))
+        query["employee_id"] = {"$in": emp_ids}
+
+    chart_pipeline = []
+    if query:
+        chart_pipeline.append({"$match": query})
+        
+    chart_pipeline.extend([
         {"$group": {"_id": "$date", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
         {"$limit": 30}
-    ]
+    ])
+    
     chart_data = await db.attendance.aggregate(chart_pipeline).to_list(30)
     return [{"date": item["_id"], "count": item["count"]} for item in chart_data]

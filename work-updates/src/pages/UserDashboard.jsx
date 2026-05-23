@@ -9,16 +9,26 @@ import { CheckCircle2, Clock, ListTodo, LogIn, LogOut, FileText, Download, Shiel
 import { calculateActiveHours } from '../utils/helpers';
 import { downloadOfferLetter } from '../services/offerLetterService';
 import { downloadPaySlip, downloadLatestPaySlip } from '../services/paySlipService';
+import { useLeaves } from '../context/LeaveContext';
+import ConfirmationModal from '../components/ConfirmationModal';
+import EditTaskModal from '../components/EditTaskModal';
+import { getNotifications, markAsRead } from '../services/notificationService';
 
 const UserDashboard = () => {
     const { user } = useAuth();
-    const { employees, allEmployees, tasks, changeTaskStatus, updateTaskProgress } = useTasks();
+    const { employees, allEmployees, tasks, editTask, changeTaskStatus, updateTaskProgress } = useTasks();
     const { activeLog, loading, locationStatus, handleCheckIn, handleCheckOut } = useAttendance();
+    const { leaves } = useLeaves();
     const navigate = useNavigate();
     const [showSlipHistory, setShowSlipHistory] = useState(false);
     const [showDateSelector, setShowDateSelector] = useState(false);
     const [slipDateRange, setSlipDateRange] = useState({ start: '', end: '' });
     const [paySlips, setPaySlips] = useState([]);
+    const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [myWeeklyTasks, setMyWeeklyTasks] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
 
     const empId = user?.employee_id || user?.employeeId;
 
@@ -37,8 +47,25 @@ const UserDashboard = () => {
                         setPaySlips([]);
                     });
             });
+
+            // Fetch Notifications
+            getNotifications().then(setNotifications).catch(() => setNotifications([]));
+
+            // Fetch Weekly Tasks
+            import('../services/taskService').then(({ getTasksByEmployee }) => {
+                getTasksByEmployee(empId, true).then(setMyWeeklyTasks);
+            });
         }
-    }, [empId]);
+    }, [empId, tasks]); // Refresh if global tasks change (e.g. status update)
+
+    const handleMarkAsRead = async (id) => {
+        try {
+            await markAsRead(id);
+            setNotifications(prev => prev.filter(n => n.id !== id));
+        } catch (err) {
+            console.error("Failed to mark as read");
+        }
+    };
 
     const handleDownloadOffer = () => {
         if (empId) {
@@ -67,26 +94,92 @@ const UserDashboard = () => {
         }
     };
     const userId = (user?.id || '').toLowerCase().trim();
+    const employeeId = (user?.employee_id || user?.employeeId || '').toLowerCase().trim();
+    
     const myTasks = tasks.filter(t => {
         const assignedId = (t.assignedTo || '').toLowerCase().trim();
-        return assignedId === userId;
+        return assignedId === userId || (employeeId && assignedId === employeeId);
     });
 
     const [filter, setFilter] = useState('all');
 
-    const filteredTasks = myTasks.filter(task => {
+    // 🔥 PRECISE WEEK SYNC: Monday 00:00:00 to Sunday 23:59:59
+    const getWeekBoundaries = (date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        const start = new Date(d.setDate(diff));
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+    };
+
+    const { start: currentWeekStart, end: currentWeekEnd } = getWeekBoundaries(new Date());
+
+    const filteredTasks = tasks.filter(task => {
+        // 1. Ownership Check
+        const assignedId = (task.assignedTo || '').toLowerCase().trim();
+        const isMine = assignedId === userId || (employeeId && assignedId === employeeId);
+        if (!isMine) return false;
+
+        // 2. Active Check: Must NOT be completed (Completed tasks move to History)
+        if (task.status === 'Completed') return false;
+
+        // 3. Precise Week Check
+        const taskWeekStart = task.weekStart ? new Date(task.weekStart) : null;
+        const taskWeekEnd = task.weekEnd ? new Date(task.weekEnd) : null;
+        const taskCreatedAt = task.createdAt ? new Date(task.createdAt) : null;
+
+        let isInCurrentWeek = false;
+        if (taskWeekStart && taskWeekEnd) {
+            // If task has explicit week bounds, check if they overlap with current week
+            isInCurrentWeek = taskWeekStart <= currentWeekEnd && taskWeekEnd >= currentWeekStart;
+        } else if (taskCreatedAt) {
+            // Fallback: check if createdAt is within current week boundaries
+            isInCurrentWeek = taskCreatedAt >= currentWeekStart && taskCreatedAt <= currentWeekEnd;
+        }
+
+        if (!isInCurrentWeek) return false;
+
+        // 4. Timeline Filter
         if (filter === 'all') return true;
-        if (filter === 'completed') return task.status === 'Completed';
-        return task.timeline === filter;
+        return task.timeline && task.timeline.toLowerCase() === filter.toLowerCase();
     });
 
     const handleStatusChange = (taskId, newStatus) => {
         changeTaskStatus(taskId, newStatus);
     };
 
+    const handleEditTask = async (taskId, taskData) => {
+        try {
+            await editTask(taskId, taskData);
+        } catch (error) {
+            alert("Failed to update task: " + error.message);
+        }
+    };
+
 
     const completedCount = myTasks.filter(t => t.status === 'Completed').length;
     const pendingCount = myTasks.filter(t => t.status !== 'Completed').length;
+
+    const myLeaves = leaves.filter(l => l.userId === empId);
+    const latestLeave = myLeaves.length > 0 ? myLeaves[0] : null;
+
+    // 🔥 INSTANT SYNC: Calculate progress locally from the tasks array
+    const calculateAggregatedProgress = (taskList, timeline) => {
+        const filtered = taskList.filter(t => (t.timeline || '').toLowerCase() === timeline);
+        if (filtered.length === 0) return 0;
+        const total = filtered.reduce((acc, t) => {
+            const p = t.status === 'Completed' ? 100 : (t.progress || 0);
+            return acc + Number(p);
+        }, 0);
+        return Math.round(total / filtered.length);
+    };
+
+    const localDailyProgress = calculateAggregatedProgress(myTasks, 'daily');
+    const localWeeklyProgress = calculateAggregatedProgress(myTasks, 'weekly');
 
     return (
         <Layout>
@@ -159,11 +252,48 @@ const UserDashboard = () => {
                             </div>
                         )}
 
+                        {/* 🕒 Strict Time Window Validation */}
+                        {(() => {
+                            const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                            const ist = new Date(utc + (3600000 * 5.5));
+                            const hour = ist.getHours();
+                            
+                            if (hour < 8) {
+                                return (
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2 rounded-xl text-amber-700 dark:text-amber-400 text-xs font-bold animate-pulse">
+                                        Check-in starts at 8:00 AM
+                                    </div>
+                                );
+                            }
+                            if (hour >= 19) {
+                                return (
+                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl text-red-700 dark:text-red-400 text-xs font-bold">
+                                        Check-in closed (after 7:00 PM)
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {!activeLog ? (
                             <button
                                 onClick={handleCheckIn}
-                                disabled={loading}
-                                className={`flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                disabled={loading || (() => {
+                                    const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                    const ist = new Date(utc + (3600000 * 5.5));
+                                    const hour = ist.getHours();
+                                    return hour < 8 || hour >= 19;
+                                })()}
+                                className={`flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${
+                                    (loading || (() => {
+                                        const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                        const ist = new Date(utc + (3600000 * 5.5));
+                                        const hour = ist.getHours();
+                                        return hour < 8 || hour >= 19;
+                                    })()) 
+                                    ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none' 
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                }`}
                             >
                                 {loading ? (
                                     <>
@@ -205,7 +335,7 @@ const UserDashboard = () => {
                                 </button>
 
                                 <button
-                                    onClick={handleCheckOut}
+                                    onClick={() => setShowCheckoutConfirm(true)}
                                     className="bg-rose-500 hover:bg-rose-600 text-white p-2.5 rounded-xl transition-all shadow-md shadow-rose-100 dark:shadow-none active:scale-95"
                                     title="Check Out"
                                 >
@@ -213,6 +343,7 @@ const UserDashboard = () => {
                                 </button>
                             </div>
                         )}
+
                     </div>
                 </div>
             </div>
@@ -264,12 +395,12 @@ const UserDashboard = () => {
                     <div className="flex-1">
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Daily Work Progress</p>
                         <h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                            {employeeData?.dailyProgress || 0}%
+                            {localDailyProgress}%
                         </h3>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div
                                 className="bg-emerald-500 h-full rounded-full transition-all duration-1000"
-                                style={{ width: `${employeeData?.dailyProgress || 0}%` }}
+                                style={{ width: `${localDailyProgress}%` }}
                             ></div>
                         </div>
                     </div>
@@ -279,14 +410,50 @@ const UserDashboard = () => {
                     <div className="flex-1">
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Weekly Work Progress</p>
                         <h3 className="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
-                            {employeeData?.weeklyProgress || 0}%
+                            {localWeeklyProgress}%
                         </h3>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div
                                 className="bg-blue-500 h-full rounded-full transition-all duration-1000"
-                                style={{ width: `${employeeData?.weeklyProgress || 0}%` }}
+                                style={{ width: `${localWeeklyProgress}%` }}
                             ></div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col animate-fade-in-up stagger-7">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Notifications</p>
+                        {notifications.length > 0 && (
+                            <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-full animate-pulse">
+                                {notifications.length} NEW
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto max-h-[120px] space-y-3 pr-1 scrollbar-none">
+                        {notifications.length > 0 ? (
+                            notifications.map(n => (
+                                <div key={n.id} className="flex items-start gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 hover:border-indigo-100 transition group relative">
+                                    <div className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${n.type === 'task' ? 'bg-indigo-500' : 'bg-emerald-500'}`}></div>
+                                    <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 flex-1 leading-tight line-clamp-2">
+                                        {n.message}
+                                    </p>
+                                    <button 
+                                        onClick={() => handleMarkAsRead(n.id)}
+                                        className="text-slate-400 hover:text-indigo-600 transition"
+                                        title="Dismiss"
+                                    >
+                                        <RotateCw className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-400 py-4">
+                                <ShieldCheck className="h-8 w-8 opacity-20 mb-2" />
+                                <p className="text-[10px] font-medium italic">No new alerts</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -448,19 +615,29 @@ const UserDashboard = () => {
                 </div>
             </div>
 
-            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">My Tasks</h2>
 
-                <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
-                    {['all', 'daily', 'weekly', 'completed'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition flex-1 sm:flex-none text-center ${filter === f ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                        >
-                            {f}
-                        </button>
-                    ))}
+            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                        Active Tasks
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                        Showing active tasks for the current week
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto overflow-x-auto">
+                        {['all', 'daily', 'weekly'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition flex-1 sm:flex-none text-center ${filter === f ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -473,6 +650,8 @@ const UserDashboard = () => {
                                 isUser={true}
                                 employee={employeeData}
                                 onStatusChange={handleStatusChange}
+                                onProgressChange={updateTaskProgress}
+                                onEdit={(t) => setEditingTask(t)}
                             />
                         </div>
                     ))
@@ -484,6 +663,22 @@ const UserDashboard = () => {
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={showCheckoutConfirm}
+                onClose={() => setShowCheckoutConfirm(false)}
+                onConfirm={handleCheckOut}
+                title="Confirm Check-Out"
+                message="Are you sure you want to check out? Your active working session for today will be ended."
+                confirmText="Yes, Check Out"
+                type="danger"
+            />
+            
+            <EditTaskModal
+                isOpen={!!editingTask}
+                onClose={() => setEditingTask(null)}
+                onSave={handleEditTask}
+                task={editingTask}
+            />
         </Layout>
     );
 };

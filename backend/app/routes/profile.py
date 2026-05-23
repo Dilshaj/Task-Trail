@@ -3,24 +3,23 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, R
 from typing import Optional
 from bson import ObjectId
 from datetime import datetime
-
 from app.db.mongo import db
-from app.schemas.schemas import UserResponse
-from app.routes.auth import get_current_user
+from app.schemas.schemas import UserResponse, FaceRegisterRequest
+from app.routes.auth import get_current_user, verify_project_access
+from app.core.roles import Role
 from app.utils.cloudinary_utils import upload_image as upload_to_cloudinary
 
 from pymongo import ReturnDocument
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/employee")
-
-@router.get("/test-health")
-async def profile_health():
-    return {"status": "ok", "message": "Profile router is reachable"}
+router = APIRouter(prefix="/profile")
 
 @router.get("/profile/{user_id}", response_model=UserResponse)
-async def get_profile(user_id: str):
+async def get_profile(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """Retrieve profile from MongoDB using internal ObjectId."""
     if db.db is None:
         raise HTTPException(status_code=503, detail="Database not connected")
@@ -29,8 +28,13 @@ async def get_profile(user_id: str):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # RBAC: Check project isolation
+        if current_user["role"] != Role.SUPER_ADMIN:
+            verify_project_access(current_user, user.get("project_id"))
+
         user["id"] = str(user["_id"])
         return user
+    except HTTPException: raise
     except Exception:
          raise HTTPException(status_code=400, detail="Invalid user ID format")
 
@@ -97,3 +101,36 @@ async def update_profile(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+@router.post("/register-face")
+async def register_face(
+    request: FaceRegisterRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Saves the employee's face encoding for authentication."""
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    
+    try:
+        user_id = current_user.get("id")
+        descriptor = request.face_descriptor
+
+        if not descriptor or len(descriptor) != 128:
+            raise HTTPException(status_code=400, detail="Invalid face descriptor. Must be 128 floats.")
+
+        result = await db.employees.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"face_encoding": descriptor}}
+        )
+
+        if result.modified_count == 0:
+            # Check if user exists but nothing changed (descriptor might be identical)
+            user = await db.employees.find_one({"_id": ObjectId(user_id)})
+            if not user:
+                 raise HTTPException(status_code=404, detail="User not found")
+
+        return {"message": "Face registered successfully ✅"}
+    except Exception as e:
+        logger.error(f"FACE REGISTRATION ERROR: {str(e)}")
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail="Failed to register face")

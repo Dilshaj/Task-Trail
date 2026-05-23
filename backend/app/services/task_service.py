@@ -1,53 +1,111 @@
 from app.db.mongo import db
+import logging
+import os
 from datetime import datetime
 from bson import ObjectId
-import logging
 
+# Using global logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-def format_task(task):
+def get_week_range(date=None):
+    """Calculates the start and end of the week (Monday to Sunday) for a given date."""
+    from datetime import timedelta
+    if date is None:
+        date = datetime.utcnow()
+    
+    # Monday is 0, Sunday is 6
+    start = date - timedelta(days=date.weekday())
+    start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return start, end
+
+async def format_task(task):
     if not task:
         return None
         
     try:
-        # Ensure all ID fields are strings for Pydantic/Frontend consistency
+        # Extract and stringify MongoDB _id
+        task_id = str(task.get("_id")) if task.get("_id") else None
+        if not task_id:
+            logger.warning("Task missing _id during formatting")
+            return None
+            
+        # Robust progress conversion
+        raw_progress = task.get("progress", 0.0)
+        try:
+            progress_val = float(raw_progress) if raw_progress is not None else 0.0
+        except (ValueError, TypeError):
+            progress_val = 0.0
+
+        # Fetch project name if missing (ignore 'General' or empty)
+        project_name = task.get("project_name") or task.get("projectName")
+        if not project_name or project_name == "General":
+            project_name = None
+            
+        pid = task.get("project_id") or task.get("projectId")
+        
+        if not project_name and pid:
+            try:
+                from app.db.mongo import db
+                # Search using both formats
+                search_ids = [str(pid)]
+                try:
+                    search_ids.append(ObjectId(pid))
+                except:
+                    pass
+                
+                # Direct collection access for reliability
+                proj = await db.db["Projects"].find_one({"_id": {"$in": search_ids}})
+                if proj:
+                    project_name = proj.get("name")
+            except:
+                pass
+                
+        # Build consistent response dict
         return {
-            "id": str(task.get("_id")),
-            "_id": str(task.get("_id")),
-            "title": task.get("title"),
-            "description": task.get("description"),
-            "deadline": task.get("deadline"),
+            "id": task_id,
+            "_id": task_id,
+            "title": task.get("title", "Untitled Task"),
+            "description": task.get("description", ""),
+            "deadline": task.get("deadline", ""),
             "priority": task.get("priority", "Medium"),
             "status": task.get("status", "Pending"),
-            "timeline": task.get("timeline", "daily"),
-            "assignedTo": str(task.get("assigned_to")) if task.get("assigned_to") else None,
-            "assigned_to": str(task.get("assigned_to")) if task.get("assigned_to") else None,
-            "projectId": str(task.get("project_id")) if task.get("project_id") else None,
-            "project_id": str(task.get("project_id")) if task.get("project_id") else None,
-            "progress": float(task.get("progress", 0.0)) if task.get("progress") is not None else 0.0,
-            "createdAt": task.get("created_at"),
-            "created_at": task.get("created_at")
+            "timeline": task.get("timeline") or task.get("type") or "daily",
+            "assignedTo": str(task.get("assigned_to") or task.get("assignedTo") or task.get("employeeId") or ""),
+            "projectId": str(task.get("project_id") or task.get("projectId") or ""),
+            "projectName": project_name or "",
+            "progress": progress_val,
+            "createdAt": task.get("created_at") or task.get("createdAt"),
+            "weekStart": task.get("week_start") or task.get("weekStart"),
+            "weekEnd": task.get("week_end") or task.get("weekEnd")
         }
     except Exception as e:
-        logger.error(f"❌ Error formatting task {task.get('_id')}: {e}")
+        logger.error(f"Error formatting task: {str(e)}")
         return None
 
 async def recalculate_employee_progress(employee_id: str):
     """
     Calculates progress percentages based on the average of task progress percentages.
+    Supports both MongoDB _id and business employee_id.
     """
-    if not employee_id or not db.db:
+    if not employee_id or db.db is None:
         return
 
     try:
-        # 1. Fetch the employee to check for manual override flag
-        query = {"$or": [{"employee_id": employee_id}]}
-        try: query["$or"].append({"_id": ObjectId(employee_id)})
-        except: pass
+        # Convert to string for query building
+        emp_id_str = str(employee_id)
+        
+        # 1. Fetch the employee
+        query = {"$or": [{"employee_id": emp_id_str}]}
+        try: 
+            query["$or"].append({"_id": ObjectId(emp_id_str)})
+        except: 
+            pass
         
         emp = await db.employees.find_one(query)
-        if emp and emp.get("manual_progress_override") is True:
-            logger.info(f"⏭️ Skipping auto-sync for {employee_id} (Manual Override Active)")
+        if not emp:
+            logger.warning(f"Employee {emp_id_str} not found for progress sync.")
             return
 
         # If manual progress is overridden by Team Lead/Admin, skip auto-recalculation
@@ -56,7 +114,14 @@ async def recalculate_employee_progress(employee_id: str):
             return
 
         # 2. Fetch all tasks for this employee
-        cursor = db.tasks.find({"assigned_to": employee_id})
+        # Use $in to match either the business ID or the MongoDB ID
+        match_ids = [emp_id_str]
+        try:
+            match_ids.append(ObjectId(emp_id_str))
+        except:
+            pass
+            
+        cursor = db.tasks.find({"assigned_to": {"$in": match_ids}})
         all_tasks = await cursor.to_list(length=1000)
         
         if not all_tasks:
@@ -73,7 +138,6 @@ async def recalculate_employee_progress(employee_id: str):
 
         def calc_perc(tasks):
             if not tasks: return 0.0
-            # Calculate average progress (treat "Completed" status as 100%)
             total_progress = 0.0
             for t in tasks:
                 raw_prog = t.get("progress", 0.0)
@@ -99,51 +163,96 @@ async def recalculate_employee_progress(employee_id: str):
                 "updated_at": datetime.utcnow()
             }}
         )
-        print(f"📊 AUTO-SYNC: Employee {employee_id} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
+        logger.info(f"AUTO-SYNC: Employee {emp_id_str} progress updated: Daily {daily_perc}%, Weekly {weekly_perc}%")
     except Exception as e:
-        logger.error(f"Error recalculating progress: {e}")
+        logger.error(f"Error recalculating progress for {employee_id}: {e}")
+
+async def get_task_by_id(task_id: str):
+    """Helper to fetch a single task by ID."""
+    if not task_id or db.db is None:
+        return None
+    try:
+        task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+        return await format_task(task)
+    except Exception as e:
+        logger.error(f"Error getting task {task_id}: {e}")
+        return None
 
 async def create_task(task_data: dict):
     """Inserts a new task and triggers progress sync."""
-    print(f"DEBUG: create_task called with {task_data}")
-    if db.db is None:
-        logger.error("❌ CREATE TASK ERROR: Database connection is None")
-        print("DEBUG: db.db is None")
+    if db.db is None or db.tasks is None:
+        logger.error("CREATE TASK ERROR: Database connection is None")
         return None
+        
     try:
-        logger.info(f"📝 Creating task with data: {task_data}")
-        print("DEBUG: Constructing db_data")
+        # Prepare data for MongoDB (using original snake_case for DB)
+        # Support both 'timeline' and 'type' for maximum frontend compatibility
+        timeline_val = task_data.get("timeline") or task_data.get("type") or "daily"
+        
+        # Resolve Project Name for embedding
+        pid = task_data.get("projectId") or task_data.get("project_id")
+        project_name = task_data.get("projectName") or task_data.get("project_name")
+        
+        if pid and not project_name:
+            try:
+                proj = await db.projects.find_one({"_id": ObjectId(pid) if isinstance(pid, str) else pid})
+                if proj:
+                    project_name = proj.get("name")
+            except:
+                pass
+
         db_data = {
             "title": task_data.get("title"),
             "description": task_data.get("description"),
             "deadline": task_data.get("deadline"),
             "priority": task_data.get("priority", "Medium"),
-            "timeline": task_data.get("timeline", "daily"),
+            "timeline": timeline_val.strip().lower(),
             "status": task_data.get("status", "Pending"),
-            "assigned_to": task_data.get("assignedTo") or task_data.get("assigned_to"),
-            "project_id": task_data.get("projectId") or task_data.get("project_id"),
-            "progress": task_data.get("progress", 0.0),
+            "assigned_to": str(task_data.get("assignedTo") or task_data.get("assigned_to") or ""),
+            "project_id": str(pid) if pid else None,
+            "project_name": project_name,
+            "progress": float(task_data.get("progress", 0.0)),
             "created_at": datetime.utcnow()
         }
         
-        logger.info(f"📤 Inserting into MongoDB: {db_data}")
-        print(f"DEBUG: Inserting into {db.tasks.name}")
-        result = await db.tasks.insert_one(db_data)
-        task_id = result.inserted_id
-        logger.info(f"✅ Task inserted with ID: {task_id}")
+        # Add week range for filtering
+        week_start, week_end = get_week_range(db_data["created_at"])
+        db_data["week_start"] = week_start
+        db_data["week_end"] = week_end
         
-        # 🔥 Trigger Auto-Sync (Wrapped in try-except so it doesn't block task creation)
+        if db_data["timeline"] == "weekly":
+            logger.info(f"ASSIGNING WEEKLY TASK: '{db_data['title']}' to {db_data['assigned_to']}")
+        else:
+            logger.info(f"Assigning daily task: '{db_data['title']}'")
+        
+        logger.info(f"Inserting task '{db_data['title']}' into Tasks collection...")
+        result = await db.tasks.insert_one(db_data)
+        
+        if not result.inserted_id:
+            logger.error("MongoDB insert failed: No inserted_id returned")
+            return None
+            
+        task_id = result.inserted_id
+        logger.info(f"Task created successfully! ID: {task_id}")
+        
+        # Trigger Auto-Sync (Non-blocking)
         if db_data["assigned_to"]:
             try:
-                logger.info(f"🔄 Triggering progress sync for employee: {db_data['assigned_to']}")
+                from app.services.notification_service import create_notification
+                await create_notification(
+                    employee_id=db_data["assigned_to"],
+                    message=f"New task assigned: {db_data['title']}",
+                    notification_type="task"
+                )
+                logger.info(f"Triggering auto-sync for {db_data['assigned_to']}")
                 await recalculate_employee_progress(db_data["assigned_to"])
             except Exception as sync_err:
-                logger.error(f"⚠️ Auto-sync failed but task was created: {sync_err}")
+                logger.error(f"Auto-sync/Notification warning: {sync_err}")
             
         db_data["_id"] = task_id
-        return format_task(db_data)
+        return await format_task(db_data)
     except Exception as e:
-        logger.error(f"❌ CRITICAL ERROR IN create_task: {str(e)}")
+        logger.error(f"CRITICAL ERROR in create_task: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None
@@ -152,9 +261,39 @@ async def get_tasks_by_employee(employee_id: str):
     if db.db is None:
         return []
     try:
-        cursor = db.tasks.find({"assigned_to": employee_id}).sort("created_at", -1)
+        # Resolve ID: Try to find if it's a business ID or MongoDB ID
+        match_ids = [employee_id]
+        try:
+            # Also look for the actual employee record to get their other ID
+            emp = await db.employees.find_one({
+                "$or": [
+                    {"_id": ObjectId(employee_id)},
+                    {"employee_id": employee_id}
+                ]
+            })
+            if emp:
+                match_ids.append(str(emp["_id"]))
+                if emp.get("employee_id"):
+                    match_ids.append(emp["employee_id"])
+        except:
+            pass
+            
+        query = {
+            "$or": [
+                {"assigned_to": {"$in": list(set(match_ids))}},
+                {"assignedTo": {"$in": list(set(match_ids))}},
+                {"employeeId": {"$in": list(set(match_ids))}}
+            ]
+        }
+        cursor = db.tasks.find(query).sort("created_at", -1)
         raw_tasks = await cursor.to_list(length=100)
-        return [format_task(t) for t in raw_tasks]
+        # Filter out None values from failed formatting
+        formatted = []
+        for t in raw_tasks:
+            f = await format_task(t)
+            if f:
+                formatted.append(f)
+        return formatted
     except Exception as e:
         logger.error(f"Error getting tasks by employee: {e}")
         return []
@@ -175,11 +314,11 @@ async def update_task_status(task_id: str, new_status: str):
             return_document=True
         )
         
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
             
-        return format_task(updated_task)
+        return await format_task(updated_task)
     except Exception as e:
         logger.error(f"Error updating task status: {e}")
         return None
@@ -194,17 +333,24 @@ async def update_task_progress(task_id: str, new_progress: float):
         if not task:
             return None
 
+        # Automatically complete task if progress is 100%
+        update_data = {"progress": new_progress, "updated_at": datetime.utcnow()}
+        if new_progress >= 100:
+            update_data["status"] = "Completed"
+        elif new_progress < 100 and task.get("status") == "Completed":
+            update_data["status"] = "In Progress"
+
         updated_task = await db.tasks.find_one_and_update(
             {"_id": ObjectId(task_id)},
-            {"$set": {"progress": new_progress, "updated_at": datetime.utcnow()}},
+            {"$set": update_data},
             return_document=True
         )
 
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
 
-        return format_task(updated_task)
+        return await format_task(updated_task)
     except Exception as e:
         logger.error(f"Error updating task progress: {e}")
         return None
@@ -234,13 +380,13 @@ async def get_tasks_by_project(project_id: str = None):
         # Filter out None values from failed formatting
         formatted_tasks = []
         for t in raw_tasks:
-            formatted = format_task(t)
+            formatted = await format_task(t)
             if formatted:
                 formatted_tasks.append(formatted)
         
         return formatted_tasks
     except Exception as e:
-        logger.error(f"🔥 GET TASKS ERROR: {str(e)}")
+        logger.error(f"GET TASKS ERROR: {str(e)}")
         return []
 
 async def delete_task(task_id: str):
@@ -255,7 +401,7 @@ async def delete_task(task_id: str):
             
         result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
         
-        # 🔥 Trigger Auto-Sync
+        # Trigger Auto-Sync
         if task.get("assigned_to"):
             await recalculate_employee_progress(task.get("assigned_to"))
             
@@ -263,3 +409,143 @@ async def delete_task(task_id: str):
     except Exception as e:
         logger.error(f"Error deleting task: {e}")
         return False
+
+async def update_task(task_id: str, task_data: dict):
+    """Administrative update for all task fields."""
+    if db.db is None:
+        return None
+    try:
+        # 1. Fetch old task to compare assignees
+        task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+        if not task:
+            return None
+
+        # Map frontend camelCase to backend snake_case
+        update_fields = {
+            "title": task_data.get("title"),
+            "description": task_data.get("description"),
+            "deadline": task_data.get("deadline"),
+            "priority": task_data.get("priority"),
+            "status": task_data.get("status"),
+            "progress": float(task_data.get("progress", 0.0)),
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Automatically update status based on progress
+        if update_fields["progress"] >= 100:
+            update_fields["status"] = "Completed"
+        elif update_fields["progress"] < 100 and update_fields.get("status") == "Completed":
+            update_fields["status"] = "In Progress"
+        
+        if "assignedTo" in task_data or "assigned_to" in task_data:
+            update_fields["assigned_to"] = str(task_data.get("assignedTo") or task_data.get("assigned_to"))
+            
+        if "projectId" in task_data or "project_id" in task_data:
+            pid = str(task_data.get("projectId") or task_data.get("project_id"))
+            update_fields["project_id"] = pid
+            
+            # Resolve Project Name for embedding
+            try:
+                proj = await db.projects.find_one({"_id": ObjectId(pid) if isinstance(pid, str) else pid})
+                if proj:
+                    update_fields["project_name"] = proj.get("name")
+            except Exception as e:
+                logger.error(f"Error resolving project name in update_task: {e}")
+
+        # Remove None values
+        update_fields = {k: v for k, v in update_fields.items() if v is not None}
+
+        updated_task = await db.tasks.find_one_and_update(
+            {"_id": ObjectId(task_id)},
+            {"$set": update_fields},
+            return_document=True
+        )
+        
+        # Trigger Auto-Sync for both old and new assignee if changed
+        current_assignee = updated_task.get("assigned_to")
+        if current_assignee:
+            await recalculate_employee_progress(current_assignee)
+            
+        # If the task was reassigned, refresh the old assignee too
+        old_assignee = task.get("assigned_to")
+        if old_assignee and old_assignee != current_assignee:
+            await recalculate_employee_progress(old_assignee)
+            
+        return await format_task(updated_task)
+    except Exception as e:
+        logger.error(f"Error updating task {task_id}: {e}")
+        return None
+
+async def get_current_week_tasks_by_employee(employee_id: str):
+    """Fetch tasks for the current week only."""
+    if db.db is None:
+        return []
+    try:
+        # Resolve ID: Handle both business ID and MongoDB ID
+        match_ids = [employee_id]
+        try:
+            emp = await db.employees.find_one({
+                "$or": [
+                    {"_id": ObjectId(employee_id)},
+                    {"employee_id": employee_id}
+                ]
+            })
+            if emp:
+                match_ids.append(str(emp["_id"]))
+                if emp.get("employee_id"):
+                    match_ids.append(emp["employee_id"])
+        except:
+            pass
+
+        now = datetime.utcnow()
+        week_start, week_end = get_week_range(now)
+        
+        query = {
+            "$and": [
+                {
+                    "$or": [
+                        {"assigned_to": {"$in": list(set(match_ids))}},
+                        {"assignedTo": {"$in": list(set(match_ids))}},
+                        {"employeeId": {"$in": list(set(match_ids))}}
+                    ]
+                },
+                {
+                    "$or": [
+                        # Case 1: Tasks with explicit week range
+                        {"$and": [
+                            {"week_start": {"$lte": now}},
+                            {"week_end": {"$gte": now}}
+                        ]},
+                        # Case 2: Tasks with week_start/week_end as camelCase
+                        {"$and": [
+                            {"weekStart": {"$lte": now}},
+                            {"weekEnd": {"$gte": now}}
+                        ]},
+                        # Case 3: Tasks without week range, fallback to createdAt
+                        {"$and": [
+                            {"week_start": {"$exists": False}},
+                            {"weekStart": {"$exists": False}},
+                            {"created_at": {"$gte": week_start, "$lte": week_end}}
+                        ]},
+                        # Case 4: createdAt as camelCase
+                        {"$and": [
+                            {"week_start": {"$exists": False}},
+                            {"weekStart": {"$exists": False}},
+                            {"createdAt": {"$gte": week_start, "$lte": week_end}}
+                        ]}
+                    ]
+                }
+            ]
+        }
+        cursor = db.tasks.find(query).sort("created_at", -1)
+        
+        raw_tasks = await cursor.to_list(length=100)
+        formatted = []
+        for t in raw_tasks:
+            f = await format_task(t)
+            if f:
+                formatted.append(f)
+        return formatted
+    except Exception as e:
+        logger.error(f"Error getting current week tasks: {e}")
+        return []

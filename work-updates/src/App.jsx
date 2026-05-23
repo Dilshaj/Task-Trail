@@ -1,13 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { ProjectProvider } from './context/ProjectContext';
-import { TaskProvider } from './context/TaskContext';
-import { AttendanceProvider } from './context/AttendanceContext';
-import { LeaveProvider } from './context/LeaveContext';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import { useState, useEffect } from 'react';
-import { ProjectFilterProvider } from './context/ProjectFilterContext';
 
 import PageLoader from './components/PageLoader';
 import Login from './pages/Login';
@@ -23,13 +17,27 @@ import UserOfferLetter from './pages/UserOfferLetter';
 import ApplyLeave from './pages/ApplyLeave';
 import EmployeesPanel from './pages/EmployeesPanel';
 import PaySlipPanel from './pages/PaySlipPanel';
+import AttendanceHistory from './pages/AttendanceHistory';
+import TaskHistory from './pages/TaskHistory';
 
 const PrivateRoute = ({ children, roleRequired }) => {
-  const { user } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user;
 
   if (!user) return <Navigate to="/" />;
-  if (roleRequired && user.role?.toLowerCase() !== roleRequired) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+  
+  const role = user.role?.toUpperCase();
+  const isAdminOrTL = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'ADMIN';
+
+  if (roleRequired === 'admin') {
+    if (!isAdminOrTL) {
+      return <Navigate to="/dashboard" />;
+    }
+    
+    // TEAM_LEAD cannot access global admin dashboard
+    if (role === 'TEAM_LEAD' && window.location.pathname === '/admin') {
+      return <Navigate to="/project-dashboard" />;
+    }
   }
 
   return children;
@@ -147,6 +155,22 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      <Route
+        path="/attendance-history"
+        element={
+          <PrivateRoute>
+            <AttendanceHistory />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/task-history"
+        element={
+          <PrivateRoute>
+            <TaskHistory />
+          </PrivateRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
@@ -166,25 +190,7 @@ function App() {
     return <PageLoader />;
   }
 
-  return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <ProjectProvider>
-            <ProjectFilterProvider>
-              <TaskProvider>
-                <AttendanceProvider>
-                  <LeaveProvider>
-                    <AppRoutes />
-                  </LeaveProvider>
-                </AttendanceProvider>
-              </TaskProvider>
-            </ProjectFilterProvider>
-          </ProjectProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  );
+  return <AppRoutes />;
 }
 
 export default App;

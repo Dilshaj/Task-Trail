@@ -11,7 +11,7 @@ const api = axios.create({
 // interceptor (leave as it is)
 api.interceptors.request.use(
   (config) => {
-    const savedUser = localStorage.getItem("user_v2");
+    const savedUser = sessionStorage.getItem("user_v2");
     if (savedUser) {
       const { token } = JSON.parse(savedUser);
       if (token) {

@@ -5,6 +5,7 @@ import { useAttendance } from '../context/AttendanceContext';
 import Layout from '../components/Layout';
 import TaskCard from '../components/TaskCard';
 import AssignTaskModal from '../components/AssignTaskModal';
+import EditTaskModal from '../components/EditTaskModal';
 import { ArrowLeft, Clock, Plus, Target, Mail, Shield, Calendar } from 'lucide-react';
 
 const EmployeeDetails = () => {
@@ -13,12 +14,13 @@ const EmployeeDetails = () => {
     const projectId = new URLSearchParams(location.search).get('project');
     const navigate = useNavigate();
 
-    const { employees, tasks, assignTask, changeTaskStatus, updateProgress } = useTasks();
+    const { employees, tasks, fetchTasks, assignTask, editTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
 
     const employee = employees.find(e => e.id === id);
     const employeeTasks = tasks.filter(t => t.assignedTo === id);
 
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
     const [dailyProgress, setDailyProgress] = useState(employee?.dailyProgress || 0);
     const [weeklyProgress, setWeeklyProgress] = useState(employee?.weeklyProgress || 0);
 
@@ -41,13 +43,41 @@ const EmployeeDetails = () => {
         }
     };
 
-    const handleAssignTask = (taskData) => {
-        assignTask(taskData);
+    const handleAssignTask = async (taskData) => {
+        try {
+            await assignTask(taskData);
+            // After assignment, refresh tasks just in case
+            await fetchTasks();
+        } catch (error) {
+            console.error("Failed to assign task:", error);
+            alert(`Failed to assign task: ${error.message}`);
+        }
+    };
+
+    const handleEditTask = async (taskId, taskData) => {
+        try {
+            await editTask(taskId, taskData);
+        } catch (error) {
+            console.error("Failed to update task:", error);
+            alert(`Failed to update task: ${error.message}`);
+        }
     };
 
     const recentUpdates = [...employeeTasks].sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
-    const dailyTasks = employeeTasks.filter(t => t.timeline === 'daily');
-    const weeklyTasks = employeeTasks.filter(t => t.timeline === 'weekly');
+    const dailyTasks = employeeTasks.filter(t => !t.timeline || t.timeline.toLowerCase() === 'daily');
+    const weeklyTasks = employeeTasks.filter(t => t.timeline && t.timeline.toLowerCase() === 'weekly');
+
+    const calculateTotalProgress = (taskList) => {
+        if (!taskList || taskList.length === 0) return 0;
+        const total = taskList.reduce((acc, t) => {
+            const p = t.status === 'Completed' ? 100 : (t.progress || 0);
+            return acc + Number(p);
+        }, 0);
+        return Math.round(total / taskList.length);
+    };
+
+    const dynamicDailyProg = calculateTotalProgress(dailyTasks);
+    const dynamicWeeklyProg = calculateTotalProgress(weeklyTasks);
 
     return (
         <Layout>
@@ -81,13 +111,14 @@ const EmployeeDetails = () => {
                             <Mail className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                             <span className="text-sm font-medium">{employee.email || `${employee.name.split(' ')[0].toLowerCase()}@eduprova.com`}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                            <Shield className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                            <span className="text-sm font-medium capitalize">{employee.role === 'admin' ? 'Admin Access' : 'User Access'}</span>
-                        </div>
+                            <span className="text-sm font-medium capitalize">
+                                {['ADMIN', 'SUPER_ADMIN'].includes(employee.role?.toUpperCase()) ? 'Admin Access' : 'User Access'}
+                            </span>
                         <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
                             <Calendar className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                            <span className="text-sm font-medium">Joined Jan 2024</span>
+                            <span className="text-sm font-medium">
+                                Joined {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set'}
+                            </span>
                         </div>
                     </div>
 
@@ -99,7 +130,7 @@ const EmployeeDetails = () => {
                         <div>
                             <div className="flex justify-between items-center text-sm font-medium mb-2">
                                 <label className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                                    Daily Progress
+                                    Daily Progress (Calculated: {dynamicDailyProg}%)
                                 </label>
                                 <span className="text-blue-600 dark:text-blue-400 font-bold">
                                     {dailyProgress}%
@@ -118,7 +149,7 @@ const EmployeeDetails = () => {
                         <div>
                             <div className="flex justify-between items-center text-sm font-medium mb-2">
                                 <label className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                                    Weekly Progress
+                                    Weekly Progress (Calculated: {dynamicWeeklyProg}%)
                                 </label>
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                                     {weeklyProgress}%
@@ -160,22 +191,14 @@ const EmployeeDetails = () => {
                                     </div>
                                     <span className={`text-xs font-bold px-2 py-1 rounded-md transition-colors duration-300 ${
                                         (() => {
-                                            const displayProgress = task.timeline === 'daily' 
-                                                ? (employee.dailyProgress || 0) 
-                                                : task.timeline === 'weekly' 
-                                                    ? (employee.weeklyProgress || 0) 
-                                                    : (task.progress || 0);
+                                            const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                             return displayProgress >= 100
                                                 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
                                                 : 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30';
                                         })()
                                     }`}>
                                         {(() => {
-                                            const displayProgress = task.timeline === 'daily' 
-                                                ? (employee.dailyProgress || 0) 
-                                                : task.timeline === 'weekly' 
-                                                    ? (employee.weeklyProgress || 0) 
-                                                    : (task.progress || 0);
+                                            const displayProgress = task.status === 'Completed' ? 100 : (task.progress || 0);
                                             return `${displayProgress}%`;
                                         })()}
                                     </span>
@@ -193,7 +216,17 @@ const EmployeeDetails = () => {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">Daily Tasks</h4>
                                 <div className="grid grid-cols-1 gap-4">
-                                    {dailyTasks.map(task => <TaskCard key={task.id} task={task} employee={employee} />)}
+                                    {dailyTasks.map(task => (
+                                        <TaskCard 
+                                            key={task.id} 
+                                            task={task} 
+                                            employee={employee} 
+                                            isUser={true} 
+                                            onStatusChange={changeTaskStatus} 
+                                            onProgressChange={updateTaskProgress}
+                                            onEdit={(task) => setEditingTask(task)}
+                                        />
+                                    ))}
                                     {dailyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No daily tasks.</p>}
                                 </div>
                             </div>
@@ -201,7 +234,17 @@ const EmployeeDetails = () => {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">Weekly Tasks</h4>
                                 <div className="grid grid-cols-1 gap-4">
-                                    {weeklyTasks.map(task => <TaskCard key={task.id} task={task} employee={employee} />)}
+                                    {weeklyTasks.map(task => (
+                                        <TaskCard 
+                                            key={task.id} 
+                                            task={task} 
+                                            employee={employee} 
+                                            isUser={true} 
+                                            onStatusChange={changeTaskStatus} 
+                                            onProgressChange={updateTaskProgress}
+                                            onEdit={(task) => setEditingTask(task)}
+                                        />
+                                    ))}
                                     {weeklyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No weekly tasks.</p>}
                                 </div>
                             </div>
@@ -217,6 +260,13 @@ const EmployeeDetails = () => {
                 onAssign={handleAssignTask}
                 employeeId={id}
                 projectId={projectId || employee.projectId}
+            />
+
+            <EditTaskModal
+                isOpen={!!editingTask}
+                onClose={() => setEditingTask(null)}
+                onSave={handleEditTask}
+                task={editingTask}
             />
         </Layout>
     );

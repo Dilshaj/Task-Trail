@@ -93,7 +93,7 @@ const AssignTaskModal = ({ isOpen, onClose, onAssign, employeeId, projectId }) =
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Deadline</label>
-                                {taskObj.timeline === 'weekly' ? (
+                                {taskObj.timeline?.toLowerCase() === 'weekly' ? (
                                     <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 font-medium flex items-center h-[38px] cursor-not-allowed">
                                         {taskObj.deadline}
                                     </div>
@@ -126,11 +126,11 @@ const AssignTaskModal = ({ isOpen, onClose, onAssign, employeeId, projectId }) =
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Target</label>
                             <div className="flex gap-4">
                                 <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                    <input type="radio" checked={taskObj.timeline === 'daily'} onChange={() => handleChange('timeline', 'daily')} className="accent-blue-600 dark:accent-indigo-500" />
+                                    <input type="radio" name="timeline" checked={taskObj.timeline?.toLowerCase() === 'daily'} onChange={() => handleChange('timeline', 'daily')} className="accent-blue-600 dark:accent-indigo-500" />
                                     Daily
                                 </label>
                                 <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                    <input type="radio" checked={taskObj.timeline === 'weekly'} onChange={() => handleChange('timeline', 'weekly')} className="accent-blue-600 dark:accent-indigo-500" />
+                                    <input type="radio" name="timeline" checked={taskObj.timeline?.toLowerCase() === 'weekly'} onChange={() => handleChange('timeline', 'weekly')} className="accent-blue-600 dark:accent-indigo-500" />
                                     Weekly
                                 </label>
                             </div>

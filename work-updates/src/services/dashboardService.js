@@ -31,3 +31,15 @@ export const getUserMetrics = async (userId) => {
         };
     }
 };
+
+export const getActivityChart = async (projectId = null) => {
+    try {
+        const params = {};
+        if (projectId) params.project_id = projectId;
+        const res = await api.get(`${API_URL}/activity-chart`, { params });
+        return res.data;
+    } catch (error) {
+        console.error('Failed to fetch activity chart:', error);
+        return [];
+    }
+};

@@ -11,11 +11,23 @@ const api = axios.create({
 // 🔐 Attach token
 api.interceptors.request.use(
     (config) => {
-        const savedUser = localStorage.getItem('user_v2');
+        // Try both keys to be safe
+        const savedUserV2 = localStorage.getItem('user_v2');
+        const savedUserLegacy = localStorage.getItem('user');
+        const savedUser = savedUserV2 || savedUserLegacy;
+
         if (savedUser) {
-            const { token } = JSON.parse(savedUser);
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
+            try {
+                const userData = JSON.parse(savedUser);
+                const token = userData.token || userData.accessToken;
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                    // console.debug(`[API] Attached token for ${config.url}`);
+                } else if (!config.url.includes('auth/login')) {
+                    console.warn(`[API] User found in storage but no token present for ${config.url}`);
+                }
+            } catch (e) {
+                console.error("[API] Failed to parse user from localStorage", e);
             }
         }
         return config;
@@ -42,7 +54,6 @@ api.interceptors.response.use(
                     try {
                         console.log("🔄 [AUTH] Access token expired. Attempting refresh...");
                         // Call refresh endpoint
-                        // We use axios directly to avoid interceptor loop if refresh fails
                         const res = await axios.post(`${API_BASE_URL}/auth/refresh?refresh_token=${refreshToken}`);
 
                         if (res.status === 200) {
