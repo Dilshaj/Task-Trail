@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Query, Request
+from fastapi import APIRouter, HTTPException, status, Query, Request, Depends
+from app.routes.auth import get_current_user
 from typing import List, Optional
 from bson import ObjectId
 import logging
@@ -63,20 +64,6 @@ async def get_employee(id: str):
          employee = await employee_service.get_employee_by_employee_id(id)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
-<<<<<<< Updated upstream
-=======
-
-    # Allow self-lookup without project access check
-    current_emp_id = str(current_user.get("employee_id", ""))
-    found_emp_id = str(employee.get("employeeId") or employee.get("employee_id") or "")
-    is_self_lookup = (
-        str(current_user.get("_id")) == str(employee.get("id") or employee.get("_id") or "") or
-        (current_emp_id and current_emp_id == found_emp_id)
-    )
-    if not is_self_lookup and enforced_project_id:
-        verify_project_access(current_user, employee.get("projectId"))
-        
->>>>>>> Stashed changes
     return employee
 
 @router.put("/{id}", response_model=EmployeeResponse)
