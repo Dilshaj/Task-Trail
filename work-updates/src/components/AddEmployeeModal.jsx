@@ -66,12 +66,17 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
 
         idTimer.current = setTimeout(async () => {
             setIdStatus('searching');
-            const emp = await searchEmployee({ employeeId: val });
-            if (emp) {
-                applyFound(emp);
-                setIdStatus('found');
-                setNameStatus('idle');
-            } else {
+            try {
+                const emp = await searchEmployee({ employeeId: val });
+                if (emp) {
+                    applyFound(emp);
+                    setIdStatus('found');
+                    setNameStatus('idle');
+                } else {
+                    setIdStatus('not-found');
+                }
+            } catch (err) {
+                console.error("Search error:", err);
                 setIdStatus('not-found');
             }
         }, DEBOUNCE_MS);
@@ -89,12 +94,17 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
 
         nameTimer.current = setTimeout(async () => {
             setNameStatus('searching');
-            const emp = await searchEmployee({ name: val });
-            if (emp) {
-                applyFound(emp);
-                setNameStatus('found');
-                setIdStatus('idle');
-            } else {
+            try {
+                const emp = await searchEmployee({ name: val });
+                if (emp) {
+                    applyFound(emp);
+                    setNameStatus('found');
+                    setIdStatus('idle');
+                } else {
+                    setNameStatus('not-found');
+                }
+            } catch (err) {
+                console.error("Search error:", err);
                 setNameStatus('not-found');
             }
         }, DEBOUNCE_MS);

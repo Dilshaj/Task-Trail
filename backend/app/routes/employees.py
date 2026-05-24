@@ -57,8 +57,6 @@ async def search_employees(
     enforced_project_id: Optional[str] = Depends(get_project_filter)
 ):
     employee = await employee_service.search_employee(employee_id, name)
-    if employee and enforced_project_id:
-        verify_project_access(current_user, employee.get("projectId"))
     return employee
 
 @router.get("/me", response_model=EmployeeResponse)

@@ -210,7 +210,7 @@ async def create_employee(employee: EmployeeCreate):
             raise ValueError("TEAM_LEAD must be assigned to a project_id")
             
         # Default password if not provided
-        password = new_emp_data.pop("password", "user123")
+        password = new_emp_data.pop("password", None) or "user123"
         new_emp_data["password_hash"] = get_password_hash(password)
         
         new_emp_data["created_at"] = datetime.utcnow()
