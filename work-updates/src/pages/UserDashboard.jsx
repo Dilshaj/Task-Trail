@@ -265,10 +265,10 @@ const UserDashboard = () => {
                                     </div>
                                 );
                             }
-                            if (hour >= 19) {
+                            if (hour >= 21) {
                                 return (
                                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl text-red-700 dark:text-red-400 text-xs font-bold">
-                                        Check-in closed (after 7:00 PM)
+                                        Check-in closed (after 9:00 PM)
                                     </div>
                                 );
                             }
@@ -282,14 +282,14 @@ const UserDashboard = () => {
                                     const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
                                     const ist = new Date(utc + (3600000 * 5.5));
                                     const hour = ist.getHours();
-                                    return hour < 8 || hour >= 19;
+                                    return hour < 8 || hour >= 21;
                                 })()}
                                 className={`flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:scale-95 ${
                                     (loading || (() => {
                                         const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
                                         const ist = new Date(utc + (3600000 * 5.5));
                                         const hour = ist.getHours();
-                                        return hour < 8 || hour >= 19;
+                                        return hour < 8 || hour >= 21;
                                     })()) 
                                     ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none' 
                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white'
@@ -336,7 +336,22 @@ const UserDashboard = () => {
 
                                 <button
                                     onClick={() => setShowCheckoutConfirm(true)}
-                                    className="bg-rose-500 hover:bg-rose-600 text-white p-2.5 rounded-xl transition-all shadow-md shadow-rose-100 dark:shadow-none active:scale-95"
+                                    disabled={(() => {
+                                        const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                        const ist = new Date(utc + (3600000 * 5.5));
+                                        const hour = ist.getHours();
+                                        return hour >= 21;
+                                    })()}
+                                    className={`p-2.5 rounded-xl transition-all shadow-md active:scale-95 ${
+                                        (() => {
+                                            const utc = new Date().getTime() + (new Date().getTimezoneOffset() * 60000);
+                                            const ist = new Date(utc + (3600000 * 5.5));
+                                            const hour = ist.getHours();
+                                            return hour >= 21;
+                                        })()
+                                            ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
+                                            : 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-100 dark:shadow-none'
+                                    }`}
                                     title="Check Out"
                                 >
                                     <LogOut className="h-5 w-5" />

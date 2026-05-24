@@ -22,10 +22,11 @@ export const getProfile = async (userId) => {
         throw new Error(error.response?.data?.detail || 'Failed to fetch profile');
     }
 };
-export const registerFace = async (faceDescriptor) => {
+export const registerFace = async (faceDescriptor, faceImage = null) => {
     try {
         const response = await api.post(`${API_URL}/register-face`, {
-            face_descriptor: faceDescriptor
+            face_descriptor: faceDescriptor,
+            face_image: faceImage
         });
         return response.data;
     } catch (error) {

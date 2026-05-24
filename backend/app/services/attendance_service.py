@@ -8,6 +8,7 @@ import io
 import math
 from urllib.request import Request, urlopen
 from fastapi import HTTPException
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +107,16 @@ def _ip_lookup(ip_address: str) -> tuple:
 
 def _calculate_euclidean_distance(v1: list, v2: list) -> float:
     """Calculates the Euclidean distance between two vectors."""
-    if not v1 or not v2 or len(v1) != len(v2):
+    if not v1 or not v2:
         return float('inf')
-    return math.sqrt(sum((a - b) ** 2 for a, b in zip(v1, v2)))
+    try:
+        f1 = [float(x) for x in v1]
+        f2 = [float(x) for x in v2]
+        if len(f1) != len(f2):
+            return float('inf')
+        return math.sqrt(sum((a - b) ** 2 for a, b in zip(f1, f2)))
+    except (ValueError, TypeError):
+        return float('inf')
 
 async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id: str = None):
     """Fetches all logs from MongoDB with strict project isolation."""
@@ -211,6 +219,19 @@ async def get_employee_status(employee_id: str):
         logger.error(f"Error fetching status: {e}")
         return {"is_checked_in": False}
 
+async def update_attendance_address_task(log_id, lat: float, lng: float):
+    """Asynchronous background task to reverse geocode and update the address in the log."""
+    try:
+        resolved = await asyncio.to_thread(_reverse_geocode, lat, lng)
+        if resolved and resolved != "Location Captured":
+            await db.attendance.update_one(
+                {"_id": log_id},
+                {"$set": {"location_name": resolved}}
+            )
+            logger.info(f"[ATTENDANCE] Async address updated for log {log_id}: {resolved}")
+    except Exception as e:
+        logger.error(f"[ATTENDANCE] Async geocode update failed: {e}")
+
 async def check_in(
     employee_id: str,
     latitude: float = None,
@@ -219,11 +240,13 @@ async def check_in(
     location_source: str = None,
     location_accuracy: float = None,
     face_descriptor: list = None,
-    request_meta: dict = None
+    face_image: str = None,
+    request_meta: dict = None,
+    background_tasks = None
 ):
     """
     Strict Check-In:
-    1. Time must be between 8:00 AM and 7:00 PM IST.
+    1. Time must be between 8:00 AM and 9:00 PM IST.
     2. GPS coordinates (lat/lng) are MANDATORY.
     3. IP-based fallback is disabled.
     """
@@ -234,20 +257,32 @@ async def check_in(
         # Time Check (IST: UTC+5:30)
         now_utc = datetime.now(timezone.utc)
         now_ist = now_utc + timedelta(hours=5, minutes=30)
-        current_hour = now_ist.hour
+        current_time_in_minutes = now_ist.hour * 60 + now_ist.minute
         
-        if current_hour < 8:
+        if current_time_in_minutes < 8 * 60:
             raise HTTPException(
                 status_code=400, 
-                detail="Check-in not started. Standard check-in time begins at 8:00 AM."
+                detail="Check-in allowed only after 8 AM"
             )
-        if current_hour >= 19:
+        if current_time_in_minutes >= 21 * 60:
             raise HTTPException(
                 status_code=400, 
-                detail="Check-in is blocked after 7:00 PM."
+                detail="Check-in closed after 9 PM"
             )
 
         current_date, current_time = get_current_timestamps()
+
+        # Duplicate Prevention
+        existing_log = await db.attendance.find_one({
+            "employee_id": employee_id,
+            "date": current_date
+        })
+        if existing_log:
+            if existing_log.get("check_out") is not None:
+                raise HTTPException(status_code=400, detail="Today's Check-In & Check-Out Already Completed")
+            else:
+                raise HTTPException(status_code=400, detail="Already Checked In")
+
         lat = _safe_float(latitude)
         lng = _safe_float(longitude)
         accuracy = _safe_float(location_accuracy)
@@ -261,8 +296,8 @@ async def check_in(
                 detail="Location permission is required to check in. Please enable GPS."
             )
 
-        # 3. Reverse Geocode to get a human-readable address
-        resolved_location_name = _reverse_geocode(lat, lng)
+        # 3. Use initial placeholder address to keep response instant
+        resolved_location_name = "Location Captured"
         
         # 3. Logging
         logger.info(
@@ -295,42 +330,14 @@ async def check_in(
         distance = _calculate_euclidean_distance(face_descriptor, stored_encoding)
         logger.info(f"[FACE AUTH] Employee {employee_id} distance: {distance:.4f}")
 
-        if distance > 0.6:
+        if distance > 0.55:
             logger.warning(f"REJECTED CHECK-IN: Face mismatch for {employee_id} (distance={distance:.4f})")
             raise HTTPException(
-                status_code=403,
-                detail="Face not recognized. Please ensure your face is clearly visible and try again."
+                status_code=400,
+                detail="Face Not Matched"
             )
 
         logger.info(f"[FACE AUTH SUCCESS] Employee {employee_id} verified.")
-
-        # 5. Check for existing active check-in
-        status = await get_active_checkin(employee_id, current_date)
-        if status:
-            # If already checked in, refresh live location in the existing active row.
-            await db.attendance.update_one(
-                {"_id": status["_id"]},
-                {"$set": {
-                    "latitude": lat,
-                    "longitude": lng,
-                    "location_name": resolved_location_name,
-                    "location_source": source,
-                    "location_accuracy": accuracy,
-                    "updated_at": datetime.utcnow()
-                }}
-            )
-            status["latitude"] = lat
-            status["longitude"] = lng
-            status["location_name"] = resolved_location_name
-            status["location_source"] = source
-            status["location_accuracy"] = accuracy
-            user = await db.employees.find_one({"employee_id": employee_id})
-            status["userName"] = user.get("name") if user else "Unknown"
-            status["userId"] = str(user.get("_id")) if user else None
-            logger.info(f"[ATTENDANCE] Updated active check-in location employee={employee_id} source={source}")
-            return format_attendance(status), False
-
-            return format_attendance(status), False
 
         project_id = user.get("project_id")
 
@@ -345,6 +352,9 @@ async def check_in(
             "location_source": source,
             "location_accuracy": accuracy,
             "project_id": project_id,
+            "face_embedding": face_descriptor,
+            "face_image": face_image,
+            "status": "Checked In",
             "created_at": datetime.utcnow()
         }
 
@@ -360,6 +370,10 @@ async def check_in(
             {"employee_id": employee_id},
             {"$set": {"is_checked_in": True, "last_check_in": current_time}}
         )
+
+        # Queue the slow reverse geocoding as a background task
+        if background_tasks and lat is not None and lng is not None:
+            background_tasks.add_task(update_attendance_address_task, result.inserted_id, lat, lng)
         
         return format_attendance(new_log), True
     except HTTPException:
@@ -373,7 +387,30 @@ async def check_out(employee_id: str):
     if db.db is None:
         return None
     try:
+        # Time Check (IST: UTC+5:30) Must be < 21:00 (9 PM)
+        now_utc = datetime.now(timezone.utc)
+        now_ist = now_utc + timedelta(hours=5, minutes=30)
+        current_time_in_minutes = now_ist.hour * 60 + now_ist.minute
+        
+        if current_time_in_minutes >= 21 * 60:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-out closed after 9 PM"
+            )
+
         current_date, current_time = get_current_timestamps()
+
+        # Check existing attendance log for today
+        existing_log = await db.attendance.find_one({
+            "employee_id": employee_id,
+            "date": current_date
+        })
+
+        if existing_log:
+            if existing_log.get("check_out") is not None:
+                raise HTTPException(status_code=400, detail="Already Checked Out")
+        else:
+            raise HTTPException(status_code=404, detail="No active check-in found for today.")
 
         result = await db.attendance.update_one(
             {
@@ -381,7 +418,7 @@ async def check_out(employee_id: str):
                 "date": current_date, 
                 "check_out": None
             },
-            {"$set": {"check_out": current_time}}
+            {"$set": {"check_out": current_time, "status": "Logged Out"}}
         )
 
         # Sync status to Employee record
@@ -404,6 +441,8 @@ async def check_out(employee_id: str):
             return format_attendance(updated_log)
         
         return None
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error during check-out: {e}")
         return None

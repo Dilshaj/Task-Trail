@@ -112,6 +112,8 @@ def format_employee(emp):
         "is_checked_in": emp.get("is_checked_in", False),
         "lastCheckIn": format_date(emp.get("last_check_in")),
         "lastCheckOut": format_date(emp.get("last_check_out")),
+        "hasFaceEncoding": bool(emp.get("face_encoding")),
+        "has_face_encoding": bool(emp.get("face_encoding")),
         
         "createdAt": format_date(emp.get("created_at")),
         "created_at": format_date(emp.get("created_at")),

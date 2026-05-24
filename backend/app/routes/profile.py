@@ -114,17 +114,23 @@ async def register_face(
     try:
         user_id = current_user.get("id")
         descriptor = request.face_descriptor
+        face_image = request.face_image
 
         if not descriptor or len(descriptor) != 128:
             raise HTTPException(status_code=400, detail="Invalid face descriptor. Must be 128 floats.")
 
+        update_payload = {
+            "face_encoding": descriptor,
+            "face_image": face_image
+        }
+
         result = await db.employees.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {"face_encoding": descriptor}}
+            {"$set": update_payload}
         )
 
         if result.modified_count == 0:
-            # Check if user exists but nothing changed (descriptor might be identical)
+            # Check if user exists
             user = await db.employees.find_one({"_id": ObjectId(user_id)})
             if not user:
                  raise HTTPException(status_code=404, detail="User not found")

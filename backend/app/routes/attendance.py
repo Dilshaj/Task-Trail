@@ -2,7 +2,7 @@ from app.schemas.schemas import AttendanceResponse, CheckInRequest
 from app.services import attendance_service
 from app.routes.auth import get_current_user, get_project_filter, require_role, verify_project_access
 from app.core.roles import Role
-from fastapi import APIRouter, HTTPException, status, Request, Query, Depends
+from fastapi import APIRouter, HTTPException, status, Request, Query, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from typing import List, Optional
 import logging
@@ -89,6 +89,7 @@ async def export_attendance(
 @router.post("/check-in")
 async def employee_check_in(
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
     """Handles an employee check-in with MongoDB."""
@@ -113,10 +114,12 @@ async def employee_check_in(
             location_source=body.get('location_source'),
             location_accuracy=body.get('location_accuracy'),
             face_descriptor=body.get('face_descriptor'),
+            face_image=body.get('face_image'),
             request_meta={
                 "client_ip": request.client.host if request.client else None,
                 "x_forwarded_for": request.headers.get("x-forwarded-for")
-            }
+            },
+            background_tasks=background_tasks
         )
 
         if not is_new:

@@ -98,11 +98,11 @@ const UserProfile = () => {
         }
     };
 
-    const handleFaceVerified = async (descriptor) => {
+    const handleFaceVerified = async (descriptor, faceImage) => {
         setIsSubmitting(true);
         setMessage({ type: '', text: '' });
         try {
-            await registerFace(descriptor);
+            await registerFace(descriptor, faceImage);
             setMessage({ type: 'success', text: 'Face registered successfully! ✅' });
             updateUser({ ...user, hasFaceEncoding: true });
         } catch (error) {
@@ -491,12 +491,14 @@ const UserProfile = () => {
                     )}
                 </div>
             </div>
-            <FaceVerificationModal 
-                isOpen={isFaceModalOpen}
-                onClose={() => setIsFaceModalOpen(false)}
-                onVerified={handleFaceVerified}
-                mode="register"
-            />
+            {isFaceModalOpen && (
+                <FaceVerificationModal 
+                    isOpen={isFaceModalOpen}
+                    onClose={() => setIsFaceModalOpen(false)}
+                    onVerified={handleFaceVerified}
+                    mode="register"
+                />
+            )}
         </Layout>
     );
 };
