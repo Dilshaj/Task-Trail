@@ -8,6 +8,7 @@ from app.services import employee_service
 from app.utils.cloudinary_utils import upload_base64_image
 from app.core.roles import Role
 from app.db.mongo import db
+from app.routes.auth import get_current_user, require_role, get_project_filter, verify_project_access
 
 logger = logging.getLogger(__name__)
 
