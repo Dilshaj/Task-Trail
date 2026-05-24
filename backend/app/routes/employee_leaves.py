@@ -61,6 +61,27 @@ async def apply_leave(
     # RBAC: Ensure user is only applying for themselves unless they are admin/tl
     if current_user["role"] == Role.EMPLOYEE and current_user["employee_id"] != leave_data.employee_id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only apply leave for yourself.")
+    # Date Validation: Prevent applying for leave in the past
+    try:
+        from_dt = datetime.strptime(leave_data.from_date, "%Y-%m-%d").date()
+        to_dt = datetime.strptime(leave_data.to_date, "%Y-%m-%d").date()
+        today = datetime.now().date()
+        
+        if from_dt < today or to_dt < today:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot apply for leave on a past date."
+            )
+        if to_dt < from_dt:
+            raise HTTPException(
+                status_code=400,
+                detail="End date cannot be before start date."
+            )
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Expected YYYY-MM-DD."
+        )
         
     try:
         new_leave = leave_data.model_dump()
@@ -211,4 +232,40 @@ async def update_leave_status(
         raise
     except Exception as e:
         logger.error(f"Error updating leave status: {e}")
+        raise HTTPException(status_code=400, detail=f"Request failed: {str(e)}")
+
+@router.delete("/delete-leave/{leave_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_leave(
+    leave_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a leave request from MongoDB."""
+    if db.db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+        
+    try:
+        leave = await db.leaves.find_one({"_id": ObjectId(leave_id)})
+        if not leave:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+            
+        # Security/Authorization check:
+        # 1. Employees can only delete their own leave requests
+        if current_user["role"] == Role.EMPLOYEE:
+            if leave.get("employee_id") != current_user["employee_id"]:
+                raise HTTPException(status_code=403, detail="Forbidden: You can only delete your own leave requests.")
+        
+        # 2. Leaves can only be deleted if their status is still PENDING_TEAM_LEAD
+        if leave.get("status") != "PENDING_TEAM_LEAD":
+            raise HTTPException(status_code=400, detail="Cannot delete a leave request that has already been processed.")
+                
+        result = await db.leaves.delete_one({"_id": ObjectId(leave_id)})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Leave request not found or not deleted")
+            
+        logger.info(f"🗑️ [LEAVE DELETE] Deleted leave {leave_id} by {current_user.get('employee_id')}")
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting leave: {e}")
         raise HTTPException(status_code=400, detail=f"Request failed: {str(e)}")

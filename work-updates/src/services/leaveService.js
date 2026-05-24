@@ -40,3 +40,12 @@ export const updateLeaveStatus = async (leaveId, status) => {
         throw new Error(error.response?.data?.detail || 'Failed to update leave status');
     }
 };
+
+export const deleteLeave = async (leaveId) => {
+    try {
+        const response = await api.delete(`${API_URL}/delete-leave/${leaveId}`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.detail || 'Failed to delete leave request');
+    }
+};

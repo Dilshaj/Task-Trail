@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from './AuthContext';
 import { useProjectFilter } from './ProjectFilterContext';
-import { getAllLeaves, getMyLeaves, updateLeaveStatus as updateStatusAPI, applyLeave as applyLeaveAPI } from '../services/leaveService';
+import { getAllLeaves, getMyLeaves, updateLeaveStatus as updateStatusAPI, applyLeave as applyLeaveAPI, deleteLeave as deleteLeaveAPI } from '../services/leaveService';
 
 const LeaveContext = createContext();
 
@@ -104,8 +104,15 @@ export const LeaveProvider = ({ children }) => {
         }
     };
 
-    const deleteLeave = (leaveId) => {
-        setLeaves(prev => prev.filter(l => l.id !== leaveId));
+    const deleteLeave = async (leaveId) => {
+        try {
+            await deleteLeaveAPI(leaveId);
+            setLeaves(prev => prev.filter(l => l.id !== leaveId));
+        } catch (error) {
+            console.error('Failed to delete leave:', error);
+            alert("Error deleting leave: " + error.message);
+            throw error;
+        }
     };
 
     const value = {

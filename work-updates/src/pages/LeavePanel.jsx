@@ -7,6 +7,14 @@ import { useProjectFilter } from '../context/ProjectFilterContext';
 import { Calendar, Trash2, CheckCircle, XCircle, Clock, Plus, Filter } from 'lucide-react';
 import { formatDate } from '../utils/helpers';
 
+const getLocalTodayString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
 const LeavePanel = ({ isAdmin }) => {
     const { user } = useAuth();
     const { projects } = useProjects();
@@ -23,6 +31,7 @@ const LeavePanel = ({ isAdmin }) => {
     const empId = user?.employee_id || user?.employeeId;
     const userLeaves = leaves.filter(l => l.userId === empId);
     const displayLeaves = isAdmin ? leaves : userLeaves;
+    const todayStr = getLocalTodayString();
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -216,6 +225,7 @@ const LeavePanel = ({ isAdmin }) => {
                                     <input 
                                         type="date"
                                         required
+                                        min={todayStr}
                                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-center"
                                         value={formData.startDate}
                                         onChange={(e) => setFormData({...formData, startDate: e.target.value})}
@@ -226,6 +236,7 @@ const LeavePanel = ({ isAdmin }) => {
                                     <input 
                                         type="date"
                                         required
+                                        min={formData.startDate || todayStr}
                                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-center"
                                         value={formData.endDate}
                                         onChange={(e) => setFormData({...formData, endDate: e.target.value})}
