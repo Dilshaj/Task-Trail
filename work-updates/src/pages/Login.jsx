@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, Loader2, Sun, Moon, User as UserIcon } from 'lucide-react';
+import { Lock, Mail, Loader2, Sun, Moon, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { changePassword } from '../services/authService';
 import eduLogo from '../pages/edu-logo.png';
 
@@ -18,6 +18,8 @@ const Login = () => {
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [newPass, setNewPass] = useState('');
     const [tempUser, setTempUser] = useState(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
 
     const { signIn, user: currentUser } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -139,14 +141,21 @@ const Login = () => {
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-primary" />
                                 <input
-                                    type="password"
+                                    type={showNewPassword ? "text" : "password"}
                                     required
                                     value={newPass}
                                     onChange={(e) => setNewPass(e.target.value)}
                                     disabled={isLoading}
-                                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pl-11 pr-4 py-3 text-sm outline-none input-focus-glow dark:text-white placeholder:text-slate-400"
+                                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pl-11 pr-12 py-3 text-sm outline-none input-focus-glow dark:text-white placeholder:text-slate-400"
                                     placeholder="••••••••"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                >
+                                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
 
@@ -221,14 +230,21 @@ const Login = () => {
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-primary" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     disabled={isLoading}
-                                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pl-11 pr-4 py-3 text-sm outline-none input-focus-glow dark:text-white placeholder:text-slate-400"
+                                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pl-11 pr-12 py-3 text-sm outline-none input-focus-glow dark:text-white placeholder:text-slate-400"
                                     placeholder="••••••••"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
 
