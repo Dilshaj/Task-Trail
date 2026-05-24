@@ -97,12 +97,12 @@ export const TaskProvider = ({ children }) => {
         await fetchEmployees();
     };
 
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         const fresh = await getEmployees(selectedProjectId);
         const global = await getEmployees(null);
         setEmployees(fresh);
         setAllEmployees(global);
-    };
+    }, [selectedProjectId]);
 
     const addNewEmployee = async (employeeData) => {
         const newEmployee = await apiAddEmployee(employeeData);

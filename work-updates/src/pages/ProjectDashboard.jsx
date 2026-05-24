@@ -10,6 +10,34 @@ import AddEmployeeModal from '../components/AddEmployeeModal';
 import { ArrowLeft, Users, Clock, FolderKanban, CheckCircle, Search } from 'lucide-react';
 import { getAdminMetrics } from '../services/dashboardService';
 
+const getDomainGroup = (roleStr) => {
+    if (!roleStr) return 'Others';
+    const r = roleStr.toLowerCase();
+    if (r.includes('python')) return 'Python Developer';
+    if (r.includes('uiux') || r.includes('ui/ux') || r.includes('design')) return 'UI/UX Design';
+    if (r.includes('developer')) return 'Developers';
+    if (r.includes('analyst')) return 'Data Analysts';
+    if (r.includes('devops')) return 'DevOps';
+    if (r.includes('security')) return 'Cyber Security';
+    return 'Others';
+};
+
+const getTeamLeadDomain = (userObj) => {
+    if (!userObj) return null;
+    const name = (userObj.name || '').toLowerCase();
+    const role = (userObj.role || '').toLowerCase();
+    const email = (userObj.email || '').toLowerCase();
+    const domainField = (userObj.domain || '').toLowerCase();
+    
+    if (name.includes('python') || role.includes('python') || email.includes('python') || domainField.includes('python')) return 'Python Developer';
+    if (name.includes('uiux') || name.includes('ui/ux') || name.includes('design') || role.includes('uiux') || role.includes('ui/ux') || role.includes('design') || domainField.includes('ui/ux') || domainField.includes('uiux') || domainField.includes('design')) return 'UI/UX Design';
+    if (name.includes('analyst') || role.includes('analyst') || email.includes('analyst') || domainField.includes('analyst')) return 'Data Analysts';
+    if (name.includes('devops') || role.includes('devops') || email.includes('devops') || domainField.includes('devops')) return 'DevOps';
+    if (name.includes('security') || role.includes('security') || email.includes('security') || domainField.includes('security')) return 'Cyber Security';
+    if (name.includes('developer') || role.includes('developer') || email.includes('developer') || name.includes('devlop') || role.includes('devlop') || email.includes('devlop') || domainField.includes('developer') || domainField.includes('devlop')) return 'Developers';
+    return null;
+};
+
 const ProjectDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -20,6 +48,7 @@ const ProjectDashboard = () => {
     const role = user?.role?.toUpperCase();
     const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
     const isTeamLead = role === 'TEAM_LEAD';
+    const tlDomain = getTeamLeadDomain(user);
 
     // ... stats logic ...
 
@@ -32,18 +61,22 @@ const ProjectDashboard = () => {
     });
     const [loadingMetrics, setLoadingMetrics] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeDomain, setActiveDomain] = useState('All');
+    const [activeDomain, setActiveDomain] = useState(isTeamLead && tlDomain ? tlDomain : 'All');
 
     const projectId = selectedProjectId || sessionStorage.getItem('selected_project_id');
 
+    // Reset filters only when project ID, role, or lead domain changes
+    useEffect(() => {
+        setSearchQuery('');
+        setActiveDomain(isTeamLead && tlDomain ? tlDomain : 'All');
+    }, [projectId, isTeamLead, tlDomain]);
+
+    // Fetch project metrics and refresh employee list
     useEffect(() => {
         if (!projectId) {
             navigate('/admin');
             return;
         }
-
-        setSearchQuery('');
-        setActiveDomain('All');
 
         const fetchMetricsInitial = async () => {
             setLoadingMetrics(true);
@@ -66,22 +99,17 @@ const ProjectDashboard = () => {
 
     // Local calculations for metrics to ensure zero lag and perfect sync
     const project = projects.find(p => p.id === projectId);
-    const projectEmployees = employees.filter(e => e.projectId === projectId);
-    const projectTasks = tasks.filter(t => t.projectId === projectId);
+    const projectEmployees = (isTeamLead && tlDomain)
+        ? employees.filter(e => e.projectId === projectId && getDomainGroup(e.role) === tlDomain)
+        : employees.filter(e => e.projectId === projectId);
+
+    const allowedEmpIds = new Set(projectEmployees.map(e => e.id || e._id));
+    const projectTasks = (isTeamLead && tlDomain)
+        ? tasks.filter(t => t.projectId === projectId && allowedEmpIds.has(t.assignedTo))
+        : tasks.filter(t => t.projectId === projectId);
+
     const completedCount = projectTasks.filter(t => t.status === 'Completed').length;
     const recentUpdates = projectTasks.filter(t => t.status === 'Completed').sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
-
-    const getDomainGroup = (roleStr) => {
-        if (!roleStr) return 'Others';
-        const r = roleStr.toLowerCase();
-        if (r.includes('python')) return 'Python Developer';
-        if (r.includes('uiux') || r.includes('ui/ux') || r.includes('design')) return 'UI/UX Design';
-        if (r.includes('developer')) return 'Developers';
-        if (r.includes('analyst')) return 'Data Analysts';
-        if (r.includes('devops')) return 'DevOps';
-        if (r.includes('security')) return 'Cyber Security';
-        return 'Others';
-    };
 
     const domainCounts = {
         All: projectEmployees.length,
@@ -288,6 +316,10 @@ const ProjectDashboard = () => {
                 {/* Domain Filter Tabs */}
                 <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 overflow-x-auto no-scrollbar">
                     {Object.keys(domainCounts).map((domain) => {
+                        // If user is a team lead with a matched domain, only show 'All' and their specific domain tab
+                        if (isTeamLead && tlDomain && domain !== 'All' && domain !== tlDomain) {
+                            return null;
+                        }
                         const count = domainCounts[domain];
                         const isActive = activeDomain === domain;
                         return (

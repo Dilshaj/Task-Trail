@@ -7,6 +7,34 @@ import { useProjectFilter } from '../context/ProjectFilterContext';
 import { useAuth } from '../context/AuthContext';
 import { Users, Search, Plus, Filter, X } from 'lucide-react';
 
+const getDomainGroup = (roleStr) => {
+    if (!roleStr) return 'Others';
+    const r = roleStr.toLowerCase();
+    if (r.includes('python')) return 'Python Developer';
+    if (r.includes('uiux') || r.includes('ui/ux') || r.includes('design')) return 'UI/UX Design';
+    if (r.includes('developer')) return 'Developers';
+    if (r.includes('analyst')) return 'Data Analysts';
+    if (r.includes('devops')) return 'DevOps';
+    if (r.includes('security')) return 'Cyber Security';
+    return 'Others';
+};
+
+const getTeamLeadDomain = (userObj) => {
+    if (!userObj) return null;
+    const name = (userObj.name || '').toLowerCase();
+    const role = (userObj.role || '').toLowerCase();
+    const email = (userObj.email || '').toLowerCase();
+    const domainField = (userObj.domain || '').toLowerCase();
+    
+    if (name.includes('python') || role.includes('python') || email.includes('python') || domainField.includes('python')) return 'Python Developer';
+    if (name.includes('uiux') || name.includes('ui/ux') || name.includes('design') || role.includes('uiux') || role.includes('ui/ux') || role.includes('design') || domainField.includes('ui/ux') || domainField.includes('uiux') || domainField.includes('design')) return 'UI/UX Design';
+    if (name.includes('analyst') || role.includes('analyst') || email.includes('analyst') || domainField.includes('analyst')) return 'Data Analysts';
+    if (name.includes('devops') || role.includes('devops') || email.includes('devops') || domainField.includes('devops')) return 'DevOps';
+    if (name.includes('security') || role.includes('security') || email.includes('security') || domainField.includes('security')) return 'Cyber Security';
+    if (name.includes('developer') || role.includes('developer') || email.includes('developer') || name.includes('devlop') || role.includes('devlop') || email.includes('devlop') || domainField.includes('developer') || domainField.includes('devlop')) return 'Developers';
+    return null;
+};
+
 const EmployeesPanel = () => {
     const { employees, addEmployee, loading } = useTasks();
     const { selectedProjectId, selectedProject } = useProjectFilter();
@@ -16,8 +44,13 @@ const EmployeesPanel = () => {
 
     const role = user?.role?.toUpperCase();
     const isTeamLead = role === 'TEAM_LEAD';
+    const tlDomain = getTeamLeadDomain(user);
 
-    const filteredEmployees = employees.filter(emp =>
+    const domainEmployees = (isTeamLead && tlDomain)
+        ? employees.filter(e => getDomainGroup(e.role) === tlDomain)
+        : employees;
+
+    const filteredEmployees = domainEmployees.filter(emp =>
         emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (emp.title || emp.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (emp.employeeId || '').includes(searchQuery)
