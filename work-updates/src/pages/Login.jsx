@@ -225,7 +225,6 @@ const Login = () => {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between ml-1">
                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
-                                <button type="button" className="text-xs font-bold text-slate-500 hover:text-primary transition-colors">Forgot Password?</button>
                             </div>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-primary" />
