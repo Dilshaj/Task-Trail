@@ -72,7 +72,7 @@ def seed_database():
                 id=employee_id,
                 name="John Employee",
                 email=user_email,
-                password_hash=get_password_hash("user123"),
+                password_hash=get_password_hash("user"),
                 role="user",
                 project_id=project_id,
                 avatar="https://ui-avatars.com/api/?name=John+Employee&background=random",

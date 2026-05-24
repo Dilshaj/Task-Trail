@@ -78,7 +78,7 @@ The core branding resides in `src/pages/`:
 ## 🔑 Demo Credentials
 For testing purposes, the login page features an "Auto-fill" option for:
 - **Admin**: admin@eduprova.com / admin123
-- **User**: user@eduprova.com / user123
+- **User**: user@eduprova.com / user
 
 ---
 
