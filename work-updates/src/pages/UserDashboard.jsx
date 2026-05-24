@@ -178,8 +178,16 @@ const UserDashboard = () => {
         return Math.round(total / filtered.length);
     };
 
-    const localDailyProgress = calculateAggregatedProgress(myTasks, 'daily');
-    const localWeeklyProgress = calculateAggregatedProgress(myTasks, 'weekly');
+    const calculatedDailyProgress = calculateAggregatedProgress(myTasks, 'daily');
+    const calculatedWeeklyProgress = calculateAggregatedProgress(myTasks, 'weekly');
+
+    const localDailyProgress = (employeeData?.manual_progress_override || employeeData?.manualProgressOverride)
+        ? (employeeData?.dailyProgress ?? employeeData?.workProgress ?? 0)
+        : calculatedDailyProgress;
+
+    const localWeeklyProgress = (employeeData?.manual_progress_override || employeeData?.manualProgressOverride)
+        ? (employeeData?.weeklyProgress ?? employeeData?.overallProgress ?? 0)
+        : calculatedWeeklyProgress;
 
     return (
         <Layout>

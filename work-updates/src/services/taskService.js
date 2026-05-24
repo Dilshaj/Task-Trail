@@ -139,3 +139,12 @@ export const getEmployeeById = async (id) => {
         return null;
     }
 };
+
+export const deleteTask = async (id) => {
+    try {
+        const res = await api.delete(`tasks/${id}`);
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.detail || 'Failed to delete task');
+    }
+};

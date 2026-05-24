@@ -107,6 +107,8 @@ def format_employee(emp):
         "weeklyProgress": overall_prog,
         "work_progress_perc": work_prog,
         "overall_progress_perc": overall_prog,
+        "manual_progress_override": emp.get("manual_progress_override", False),
+        "manualProgressOverride": emp.get("manual_progress_override", False),
         
         "isCheckedIn": emp.get("is_checked_in", False),
         "is_checked_in": emp.get("is_checked_in", False),

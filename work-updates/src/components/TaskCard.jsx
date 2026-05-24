@@ -1,10 +1,10 @@
 import React from 'react';
-import { Calendar, AlertCircle, CheckCircle2, Edit2 } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle2, Edit2, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import clsx from 'clsx';
 import { formatDate } from '../utils/helpers';
 
-const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, isUser, employee }) => {
+const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, onDelete, isUser, employee }) => {
     const { user } = useAuth();
     const role = user?.role?.toUpperCase();
     const canEdit = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'ADMIN';
@@ -28,15 +28,24 @@ const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, isUser, empl
         <div className="flex flex-col rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-5 shadow-sm transition-all duration-300 hover:shadow-xl dark:hover:shadow-indigo-900/20 hover:-translate-y-1 group">
             <div className="flex items-start justify-between gap-4 mb-3">
                 <h4 className="font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{task.title}</h4>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     {canEdit && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onEdit && onEdit(task); }}
-                            className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-slate-100 dark:border-slate-700 shadow-sm"
-                            title="Edit Task"
-                        >
-                            <Edit2 className="h-4 w-4" />
-                        </button>
+                        <>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onEdit && onEdit(task); }}
+                                className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-slate-100 dark:border-slate-700 shadow-sm"
+                                title="Edit Task"
+                            >
+                                <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onDelete && onDelete(task.id); }}
+                                className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all border border-slate-100 dark:border-slate-700 shadow-sm"
+                                title="Delete Task"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

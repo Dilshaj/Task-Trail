@@ -14,7 +14,7 @@ const EmployeeDetails = () => {
     const projectId = new URLSearchParams(location.search).get('project');
     const navigate = useNavigate();
 
-    const { employees, tasks, fetchTasks, assignTask, editTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
+    const { employees, tasks, fetchTasks, assignTask, editTask, deleteTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
 
     const employee = employees.find(e => e.id === id);
     const employeeTasks = tasks.filter(t => t.assignedTo === id);
@@ -60,6 +60,18 @@ const EmployeeDetails = () => {
         } catch (error) {
             console.error("Failed to update task:", error);
             alert(`Failed to update task: ${error.message}`);
+        }
+    };
+
+    const handleDeleteTask = async (taskId) => {
+        if (window.confirm("Are you sure you want to delete this task?")) {
+            try {
+                await deleteTask(taskId);
+                await fetchTasks();
+            } catch (error) {
+                console.error("Failed to delete task:", error);
+                alert(`Failed to delete task: ${error.message}`);
+            }
         }
     };
 
@@ -225,6 +237,7 @@ const EmployeeDetails = () => {
                                             onStatusChange={changeTaskStatus} 
                                             onProgressChange={updateTaskProgress}
                                             onEdit={(task) => setEditingTask(task)}
+                                            onDelete={handleDeleteTask}
                                         />
                                     ))}
                                     {dailyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No daily tasks.</p>}
@@ -243,6 +256,7 @@ const EmployeeDetails = () => {
                                             onStatusChange={changeTaskStatus} 
                                             onProgressChange={updateTaskProgress}
                                             onEdit={(task) => setEditingTask(task)}
+                                            onDelete={handleDeleteTask}
                                         />
                                     ))}
                                     {weeklyTasks.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-500">No weekly tasks.</p>}
