@@ -17,6 +17,7 @@ router = APIRouter(prefix="/employees")
 @router.get("", response_model=List[EmployeeResponse])
 async def get_employees(
     project_id: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None),
     skip: int = 0, 
     limit: int = 100,
     current_user: dict = Depends(get_current_user),
@@ -27,7 +28,7 @@ async def get_employees(
     TEAM_LEAD: Sees only their project's employees
     """
     target_project = enforced_project_id or project_id
-    return await employee_service.get_employees(skip=skip, limit=limit, project_id=target_project)
+    return await employee_service.get_employees(skip=skip, limit=limit, project_id=target_project, domain=domain)
 
 @router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
 async def create_employee(

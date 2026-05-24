@@ -5,11 +5,25 @@ import { useTasks } from '../context/TaskContext';
 
 const DEBOUNCE_MS = 500;
 
+const domainOptions = [
+    "Frontend Developer",
+    "Backend Developer",
+    "Python Developer",
+    "Data Analyst",
+    "DevOps",
+    "Cyber Security",
+    "UI/UX Designer",
+    "QA Tester",
+    "Other"
+];
+
 const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) => {
     const { refreshEmployees } = useTasks();
     const [employeeId, setEmployeeId] = useState('');
     const [name, setName] = useState('');
-    const [role, setRole] = useState('');
+    const [role, setRole] = useState('Frontend Developer');
+    const [selectedDomain, setSelectedDomain] = useState('Frontend Developer');
+    const [customRole, setCustomRole] = useState('');
     const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Holds the UUID of the employee found in DB (null if new / not found)
@@ -32,7 +46,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
         if (!isOpen) {
             setEmployeeId('');
             setName('');
-            setRole('');
+            setRole('Frontend Developer');
+            setSelectedDomain('Frontend Developer');
+            setCustomRole('');
             setJoiningDate(new Date().toISOString().split('T')[0]);
             setFoundEmployee(null);
             setIdStatus('idle');
@@ -48,7 +64,15 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
         setFoundEmployee(emp);
         setEmployeeId(emp.employeeId || '');
         setName(emp.name || '');
-        setRole(emp.role || emp.title || '');
+        const empRole = emp.role || emp.title || '';
+        setRole(empRole);
+        if (domainOptions.includes(empRole)) {
+            setSelectedDomain(empRole);
+            setCustomRole('');
+        } else {
+            setSelectedDomain('Other');
+            setCustomRole(empRole);
+        }
         setJoiningDate(emp.joiningDate || emp.joining_date || new Date().toISOString().split('T')[0]);
     };
 
@@ -231,20 +255,51 @@ const AddEmployeeModal = ({ isOpen, onClose, onAdd, projectId, projectName }) =>
                             )}
                         </div>
 
-                        {/* ── Role ── */}
+                        {/* ── Domain Selector ── */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Role / Job Title
+                                Domain
                             </label>
-                            <input
-                                type="text"
-                                required
-                                value={role}
-                                onChange={(e) => { setRole(e.target.value); clearFound() }}
+                            <select
+                                value={selectedDomain}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSelectedDomain(val);
+                                    if (val !== 'Other') {
+                                        setRole(val);
+                                    } else {
+                                        setRole(customRole);
+                                    }
+                                    clearFound();
+                                }}
                                 className={getInput(foundEmployee ? 'found' : 'idle')}
-                                placeholder="e.g. Backend Developer"
-                            />
+                            >
+                                {domainOptions.map((opt) => (
+                                    <option key={opt} value={opt} className="dark:bg-slate-900">{opt}</option>
+                                ))}
+                            </select>
                         </div>
+
+                        {selectedDomain === 'Other' && (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Custom Role / Job Title
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={customRole}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setCustomRole(val);
+                                        setRole(val);
+                                        clearFound();
+                                    }}
+                                    className={getInput(foundEmployee ? 'found' : 'idle')}
+                                    placeholder="e.g. Sales Manager"
+                                />
+                            </div>
+                        )}
 
                         {/* ── Joining Date ── */}
                         <div>

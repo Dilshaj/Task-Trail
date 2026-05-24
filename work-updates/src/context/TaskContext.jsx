@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
-import { getTasks, getEmployees, addTask as apiAddTask, updateTaskStatus as apiUpdateStatus, updateTaskProgress as apiUpdateTaskProgress, adminUpdateTask as apiAdminUpdateTask, updateEmployeeProgress as apiUpdateProgress, addEmployee as apiAddEmployee, deleteEmployee as apiDeleteEmployee, deleteTask as apiDeleteTask } from '../services/taskService';
+import { getTasks, getEmployees, addTask as apiAddTask, updateTaskStatus as apiUpdateStatus, updateTaskProgress as apiUpdateTaskProgress, adminUpdateTask as apiAdminUpdateTask, updateEmployeeProgress as apiUpdateProgress, addEmployee as apiAddEmployee, deleteEmployee as apiDeleteEmployee, deleteTask as apiDeleteTask, updateEmployee as apiUpdateEmployee } from '../services/taskService';
 import { useProjectFilter } from './ProjectFilterContext';
 import { useAuth } from './AuthContext';
 
@@ -84,6 +84,13 @@ export const TaskProvider = ({ children }) => {
         setAllEmployees(prev => prev.map(e => e.id === empId ? updated : e));
     };
 
+    const editEmployeeDetails = async (empId, employeeData) => {
+        const updated = await apiUpdateEmployee(empId, employeeData);
+        setEmployees(prev => prev.map(e => e.id === empId ? updated : e));
+        setAllEmployees(prev => prev.map(e => e.id === empId ? updated : e));
+        return updated;
+    };
+
     const deleteTask = async (id) => {
         await apiDeleteTask(id);
         setTasks(prev => prev.filter(t => t.id !== id));
@@ -126,10 +133,11 @@ export const TaskProvider = ({ children }) => {
         editTask,
         deleteTask,
         updateProgress,
+        editEmployeeDetails,
         addEmployee: addNewEmployee,
         removeEmployee,
         refreshEmployees: fetchEmployees
-    }), [tasks, employees, allEmployees, loading, fetchTasks, fetchEmployees, assignTask, editTask, deleteTask, changeTaskStatus, updateProgress, addNewEmployee, removeEmployee]);
+    }), [tasks, employees, allEmployees, loading, fetchTasks, fetchEmployees, assignTask, editTask, deleteTask, changeTaskStatus, updateProgress, editEmployeeDetails, addNewEmployee, removeEmployee]);
 
     return (
         <TaskContext.Provider value={value}>

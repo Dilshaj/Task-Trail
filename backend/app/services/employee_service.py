@@ -124,8 +124,8 @@ def format_employee(emp):
         "joining_date": joining_date_val
     }
 
-async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None):
-    """Retrieve employees with strict project-wise isolation."""
+async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None, domain: str = None):
+    """Retrieve employees with strict project-wise isolation and optional domain filtering."""
     if db.db is None:
         return []
     try:
@@ -144,6 +144,23 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None)
             # If no project_id is provided, we return ALL employees.
             # This is necessary for the Global Admin Dashboard to show total counts.
             logger.info("[ISOLATION] No project_id provided. Returning all employees.")
+        
+        if domain and str(domain).lower() not in ["null", "undefined", "none", "all", ""]:
+            domain_lower = str(domain).lower().strip()
+            if domain_lower == "developers":
+                query["role"] = {"$regex": "^(?!.*python)(?!.*design)(?!.*designer)(?!.*uiux)(?!.*ui/ux)(?:.*develop|.*devlop)", "$options": "i"}
+            elif domain_lower in ["python developer", "python developers", "python"]:
+                query["role"] = {"$regex": "python", "$options": "i"}
+            elif domain_lower in ["data analysts", "data analyst", "analysts", "analyst"]:
+                query["role"] = {"$regex": "analyst", "$options": "i"}
+            elif domain_lower == "devops":
+                query["role"] = {"$regex": "devops", "$options": "i"}
+            elif domain_lower in ["cyber security", "cybersecurity", "security"]:
+                query["role"] = {"$regex": "security", "$options": "i"}
+            elif domain_lower in ["uiux design", "ui/ux design", "uiux designer", "ui/ux designer", "uiux", "ui/ux", "design", "designer"]:
+                query["role"] = {"$regex": "ui/ux|uiux|design|designer", "$options": "i"}
+            elif domain_lower == "others":
+                query["role"] = {"$not": {"$regex": "develop|devlop|analyst|devops|security|python|design|designer|uiux|ui/ux", "$options": "i"}}
         
         cursor = db.employees.find(query).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)

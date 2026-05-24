@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectContext';
 import { useTasks } from '../context/TaskContext';
 import Layout from '../components/Layout';
 import EmployeeCard from '../components/EmployeeCard';
 import AddEmployeeModal from '../components/AddEmployeeModal';
-import { ArrowLeft, Users, Clock } from 'lucide-react';
+import { ArrowLeft, Users, Clock, Search } from 'lucide-react';
 
 const ProjectDetails = () => {
-    const { id } = useParams();
+    const id = useParams().id;
     const navigate = useNavigate();
     const { projects } = useProjects();
     const { employees, tasks, addEmployee } = useTasks();
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeDomain, setActiveDomain] = useState('All');
+
+    useEffect(() => {
+        setSearchQuery('');
+        setActiveDomain('All');
+    }, [id]);
 
     const handleAddEmployee = (employeeData) => {
         addEmployee(employeeData);
@@ -23,6 +30,41 @@ const ProjectDetails = () => {
     const projectEmployees = employees.filter(e => e.projectId === id);
     const projectTasks = tasks.filter(t => t.projectId === id);
     const recentUpdates = projectTasks.filter(t => t.status === 'Completed').sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
+
+    const getDomainGroup = (roleStr) => {
+        if (!roleStr) return 'Others';
+        const r = roleStr.toLowerCase();
+        if (r.includes('python')) return 'Python Developer';
+        if (r.includes('uiux') || r.includes('ui/ux') || r.includes('design')) return 'UI/UX Design';
+        if (r.includes('developer')) return 'Developers';
+        if (r.includes('analyst')) return 'Data Analysts';
+        if (r.includes('devops')) return 'DevOps';
+        if (r.includes('security')) return 'Cyber Security';
+        return 'Others';
+    };
+
+    const domainCounts = {
+        All: projectEmployees.length,
+        Developers: projectEmployees.filter(e => getDomainGroup(e.role) === 'Developers').length,
+        'Python Developer': projectEmployees.filter(e => getDomainGroup(e.role) === 'Python Developer').length,
+        'Data Analysts': projectEmployees.filter(e => getDomainGroup(e.role) === 'Data Analysts').length,
+        DevOps: projectEmployees.filter(e => getDomainGroup(e.role) === 'DevOps').length,
+        'Cyber Security': projectEmployees.filter(e => getDomainGroup(e.role) === 'Cyber Security').length,
+        'UI/UX Design': projectEmployees.filter(e => getDomainGroup(e.role) === 'UI/UX Design').length,
+        Others: projectEmployees.filter(e => getDomainGroup(e.role) === 'Others').length,
+    };
+
+    let filteredEmployees = projectEmployees;
+    if (activeDomain !== 'All') {
+        filteredEmployees = filteredEmployees.filter(e => getDomainGroup(e.role) === activeDomain);
+    }
+    if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        filteredEmployees = filteredEmployees.filter(e => 
+            (e.name || '').toLowerCase().includes(query) || 
+            (e.role || e.title || '').toLowerCase().includes(query)
+        );
+    }
 
     if (!project) return <div>Loading...</div>;
 
@@ -103,26 +145,69 @@ const ProjectDetails = () => {
                 </div>
             </div>
 
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up stagger-2">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Project Team Members</h2>
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 rounded-xl bg-blue-600 dark:bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-md hover:bg-blue-700 dark:hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-300"
-                >
-                    <Users className="h-4 w-4" />
-                    <span className="font-bold text-lg leading-none">+</span> Add
-                </button>
+            <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in-up stagger-2">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white">Project Team Members</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Manage and filter project contributors by their specialized domains</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="relative flex-1 md:w-64">
+                        <input
+                            type="text"
+                            placeholder="Search members..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        />
+                        <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex-shrink-0 flex items-center gap-2 rounded-xl bg-blue-600 dark:bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-md hover:bg-blue-700 dark:hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-300"
+                    >
+                        <Users className="h-4 w-4" />
+                        <span className="font-bold text-lg leading-none">+</span> Add
+                    </button>
+                </div>
+            </div>
+
+            {/* Domain Filter Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 overflow-x-auto no-scrollbar">
+                {Object.keys(domainCounts).map((domain) => {
+                    const count = domainCounts[domain];
+                    const isActive = activeDomain === domain;
+                    return (
+                        <button
+                            key={domain}
+                            onClick={() => setActiveDomain(domain)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                                isActive
+                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                    : 'bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/50 text-slate-600 dark:text-slate-300'
+                            }`}
+                        >
+                            <span>{domain}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                isActive
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400'
+                            }`}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {projectEmployees.map((emp, index) => (
+                {filteredEmployees.map((emp, index) => (
                     <div key={emp.id} className={`animate-fade-in-up stagger-${(index % 5) + 1}`}>
                         <EmployeeCard employee={emp} projectId={id} />
                     </div>
                 ))}
-                {projectEmployees.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                        No employees found for this project.
+                {filteredEmployees.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-800/50">
+                        No employees found matching the filters.
                     </div>
                 )}
             </div>

@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, User } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
 
+const getDomainGroup = (roleStr) => {
+    if (!roleStr) return 'Others';
+    const r = roleStr.toLowerCase();
+    if (r.includes('python')) return 'Python Developer';
+    if (r.includes('uiux') || r.includes('ui/ux') || r.includes('design')) return 'UI/UX Design';
+    if (r.includes('developer')) return 'Developers';
+    if (r.includes('analyst')) return 'Data Analysts';
+    if (r.includes('devops')) return 'DevOps';
+    if (r.includes('security')) return 'Cyber Security';
+    return 'Others';
+};
+
 const EditTaskModal = ({ isOpen, onClose, onSave, task }) => {
     const { allEmployees } = useTasks();
     const [taskObj, setTaskObj] = useState({
@@ -11,7 +23,8 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task }) => {
         priority: 'Medium',
         progress: 0,
         assignedTo: '',
-        status: 'Pending'
+        status: 'Pending',
+        projectId: ''
     });
 
     useEffect(() => {
@@ -23,12 +36,39 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task }) => {
                 priority: task.priority || 'Medium',
                 progress: task.progress || 0,
                 assignedTo: task.assignedTo || '',
-                status: task.status || 'Pending'
+                status: task.status || 'Pending',
+                projectId: task.projectId || task.project_id || ''
             });
         }
     }, [task]);
 
     if (!isOpen) return null;
+
+    const projectId = taskObj.projectId || task?.projectId || task?.project_id || '';
+    const projectEmployees = allEmployees.filter(emp => (emp.projectId || emp.project_id) === projectId);
+
+    // Safeguard: Ensure the currently assigned employee is in the list even if they aren't assigned to the project
+    const currentAssignee = allEmployees.find(emp => emp.id === taskObj.assignedTo);
+    const hasCurrentAssignee = projectEmployees.some(emp => emp.id === taskObj.assignedTo);
+    if (currentAssignee && !hasCurrentAssignee) {
+        projectEmployees.push(currentAssignee);
+    }
+
+    const groupedEmployees = {};
+    projectEmployees.forEach(emp => {
+        const group = getDomainGroup(emp.role);
+        if (!groupedEmployees[group]) {
+            groupedEmployees[group] = [];
+        }
+        groupedEmployees[group].push(emp);
+    });
+
+    const domainOrder = ['Developers', 'Python Developer', 'Data Analysts', 'DevOps', 'Cyber Security', 'UI/UX Design', 'Others'];
+    const sortedGroups = Object.keys(groupedEmployees).sort((a, b) => {
+        const idxA = domainOrder.indexOf(a);
+        const idxB = domainOrder.indexOf(b);
+        return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+    });
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -112,8 +152,14 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task }) => {
                                     className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-10 py-3 text-sm outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all dark:text-white appearance-none"
                                 >
                                     <option value="">Select Employee</option>
-                                    {allEmployees.map(emp => (
-                                        <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                    {sortedGroups.map(group => (
+                                        <optgroup key={group} label={group} className="dark:bg-slate-900 font-semibold text-slate-500 dark:text-slate-400">
+                                            {groupedEmployees[group].map(emp => (
+                                                <option key={emp.id} value={emp.id} className="dark:bg-slate-900 text-slate-800 dark:text-white">
+                                                    {emp.name} ({emp.role})
+                                                </option>
+                                            ))}
+                                        </optgroup>
                                     ))}
                                 </select>
                                 <User className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" />

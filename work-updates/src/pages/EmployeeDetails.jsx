@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTasks } from '../context/TaskContext';
 import { useAttendance } from '../context/AttendanceContext';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import TaskCard from '../components/TaskCard';
 import AssignTaskModal from '../components/AssignTaskModal';
 import EditTaskModal from '../components/EditTaskModal';
-import { ArrowLeft, Clock, Plus, Target, Mail, Shield, Calendar } from 'lucide-react';
+import EditEmployeeModal from '../components/EditEmployeeModal';
+import { ArrowLeft, Clock, Plus, Target, Mail, Shield, Calendar, Pencil } from 'lucide-react';
 
 const EmployeeDetails = () => {
     const { id } = useParams();
@@ -14,15 +16,26 @@ const EmployeeDetails = () => {
     const projectId = new URLSearchParams(location.search).get('project');
     const navigate = useNavigate();
 
-    const { employees, tasks, fetchTasks, assignTask, editTask, deleteTask, changeTaskStatus, updateTaskProgress, updateProgress } = useTasks();
+    const { employees, tasks, fetchTasks, assignTask, editTask, deleteTask, changeTaskStatus, updateTaskProgress, updateProgress, editEmployeeDetails } = useTasks();
+    const { user } = useAuth();
 
     const employee = employees.find(e => e.id === id);
     const employeeTasks = tasks.filter(t => t.assignedTo === id);
 
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+    const [isEditEmployeeModalOpen, setIsEditEmployeeModalOpen] = useState(false);
     const [dailyProgress, setDailyProgress] = useState(employee?.dailyProgress || 0);
     const [weeklyProgress, setWeeklyProgress] = useState(employee?.weeklyProgress || 0);
+
+    const handleEditEmployeeDetails = async (empId, employeeData) => {
+        try {
+            await editEmployeeDetails(empId, employeeData);
+        } catch (error) {
+            console.error("Failed to update employee details:", error);
+            throw error;
+        }
+    };
 
     // Sync state if employee data changes (e.g. after initial load)
     React.useEffect(() => {
@@ -115,7 +128,18 @@ const EmployeeDetails = () => {
                     <div className="flex flex-col items-center mb-6">
                         <img src={employee.avatar} alt={employee.name} className="h-32 w-32 rounded-full border-4 border-slate-50 dark:border-slate-800 mb-4 shadow-md object-cover transition-transform group-hover:scale-105" />
                         <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{employee.name}</h3>
-                        <span className="text-sm font-medium capitalize text-blue-700 dark:text-indigo-300 bg-blue-50 dark:bg-indigo-900/40 px-3 py-1 rounded-full mt-2 border border-blue-100 dark:border-indigo-800">{employee.role}</span>
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className="text-sm font-medium capitalize text-blue-700 dark:text-indigo-300 bg-blue-50 dark:bg-indigo-900/40 px-3 py-1 rounded-full border border-blue-100 dark:border-indigo-800">{employee.role}</span>
+                            {['SUPER_ADMIN', 'ADMIN', 'TEAM_LEAD'].includes(user?.role?.toUpperCase()) && (
+                                <button
+                                    onClick={() => setIsEditEmployeeModalOpen(true)}
+                                    className="p-1.5 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-indigo-950/30 transition-colors"
+                                    title="Edit Employee Details"
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-5 pt-6 border-t border-slate-200/40 dark:border-slate-800 w-full mb-6">
@@ -281,6 +305,13 @@ const EmployeeDetails = () => {
                 onClose={() => setEditingTask(null)}
                 onSave={handleEditTask}
                 task={editingTask}
+            />
+
+            <EditEmployeeModal
+                isOpen={isEditEmployeeModalOpen}
+                onClose={() => setIsEditEmployeeModalOpen(false)}
+                onSave={handleEditEmployeeDetails}
+                employee={employee}
             />
         </Layout>
     );

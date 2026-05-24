@@ -148,3 +148,21 @@ export const deleteTask = async (id) => {
         throw new Error(error.response?.data?.detail || 'Failed to delete task');
     }
 };
+
+export const updateEmployee = async (id, employeeData) => {
+    try {
+        const res = await api.put(`employees/${id}`, {
+            name: employeeData.name,
+            role: employeeData.role,
+            project_id: employeeData.projectId || employeeData.project_id,
+            email: employeeData.email,
+            avatar: employeeData.avatar,
+            password: employeeData.password || undefined,
+            joining_date: employeeData.joiningDate || employeeData.joining_date
+        });
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.detail || 'Failed to update employee');
+    }
+};
+
