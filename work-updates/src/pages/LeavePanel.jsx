@@ -168,7 +168,7 @@ const LeavePanel = ({ isAdmin }) => {
                                                     )}
 
                                                     {/* 🗑️ Employee can delete only if still at Level 1 */}
-                                                    {user?.role?.toUpperCase() === 'EMPLOYEE' && leave.status === 'PENDING_TEAM_LEAD' && (
+                                                    {!isAdmin && leave.status === 'PENDING_TEAM_LEAD' && (
                                                         <button 
                                                             onClick={() => deleteLeave(leave.id)}
                                                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
