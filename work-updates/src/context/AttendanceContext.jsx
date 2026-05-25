@@ -20,6 +20,28 @@ export const useAttendance = () => {
     return context;
 };
 
+const getISTDate = () => {
+    const utc = Date.now() + (new Date().getTimezoneOffset() * 60000);
+    const ist = new Date(utc + (3600000 * 5.5));
+    const year = ist.getFullYear();
+    const month = String(ist.getMonth() + 1).padStart(2, '0');
+    const day = String(ist.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const normalizeDate = (dateStr) => {
+    if (!dateStr) return "";
+    const clean = String(dateStr).trim();
+    if (clean.match(/^\d{4}-\d{2}-\d{2}$/)) return clean;
+    const parts = clean.split(/[-/]/);
+    if (parts.length === 3) {
+        if (parts[0].length === 2 && parts[2].length === 4) {
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    }
+    return clean;
+};
+
 export const AttendanceProvider = ({ children }) => {
     const { user } = useAuth();
     const { selectedProjectId } = useProjectFilter();
@@ -46,9 +68,11 @@ export const AttendanceProvider = ({ children }) => {
 
             // 2. Find active log for the current user manually (Avoids 404 on new endpoints)
             const empId = user.employee_id || user.employeeId || user.id;
+            const todayStr = getISTDate();
             const active = data.find(l => 
                 String(l.employeeId) === String(empId) && 
-                l.status === 'Checked In'
+                l.status === 'Checked In' &&
+                normalizeDate(l.date) === todayStr
             );
             setActiveLog(active || null);
         } catch (error) {
@@ -66,28 +90,6 @@ export const AttendanceProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
 
     const [popup, setPopup] = useState(null); // { title: '...', message: '...', type: '...' }
-
-    const getISTDate = () => {
-        const utc = Date.now() + (new Date().getTimezoneOffset() * 60000);
-        const ist = new Date(utc + (3600000 * 5.5));
-        const year = ist.getFullYear();
-        const month = String(ist.getMonth() + 1).padStart(2, '0');
-        const day = String(ist.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const normalizeDate = (dateStr) => {
-        if (!dateStr) return "";
-        const clean = String(dateStr).trim();
-        if (clean.match(/^\d{4}-\d{2}-\d{2}$/)) return clean;
-        const parts = clean.split(/[-/]/);
-        if (parts.length === 3) {
-            if (parts[0].length === 2 && parts[2].length === 4) {
-                return `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-        }
-        return clean;
-    };
 
     const checkTodayAttendanceStatus = () => {
         if (!user) return { canCheckIn: false, error: 'User not loaded' };
