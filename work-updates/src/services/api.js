@@ -103,6 +103,7 @@ api.interceptors.response.use(
                         processQueue(new Error("No refresh token"), null);
                         isRefreshing = false;
                         localStorage.removeItem('user_v2');
+                        localStorage.removeItem('user');
                         window.location.href = "/";
                         return Promise.reject(error);
                     }
@@ -111,10 +112,15 @@ api.interceptors.response.use(
                     processQueue(refreshError, null);
                     isRefreshing = false;
                     localStorage.removeItem('user_v2');
+                    localStorage.removeItem('user');
                     window.location.href = "/";
                     return Promise.reject(refreshError);
                 }
             } else {
+                localStorage.removeItem('user');
+                if (window.location.pathname !== "/") {
+                    window.location.href = "/";
+                }
                 return Promise.reject(error);
             }
         }
