@@ -96,32 +96,43 @@ class OfferLetterService:
     @staticmethod
     def generate_offer_letter_pdf(offer_data: dict):
         """Generates a professional PDF from the MongoDB document."""
-        # Note: input is now a dict from MongoDB
-        env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
-        template = env.get_template(TEMPLATE_NAME)
+        import subprocess
+        import json
         
         current_date_obj = datetime.now()
-        expiry_date_obj = current_date_obj + timedelta(days=7)
         
-        context = {
-            "employee_name": offer_data.get("name"),
-            "employee_id": offer_data.get("employee_id"),
-            "role": offer_data.get("role"),
-            "joining_date": offer_data.get("joining_date"),
-            "location": offer_data.get("location"),
-            "package": offer_data.get("package"),
-            "date": current_date_obj.strftime("%B %d, %Y"),
-            "expiry_date": expiry_date_obj.strftime("%B %d, %Y"),
-            "logo_path": "file:///" + LOGO_PATH.replace("\\", "/")
+        # Map data for the Node.js script
+        mapped_data = {
+            "candidateName": offer_data.get("name") or "Unknown Candidate",
+            "candidateAddress": "Ainada, Visakhapatnam, Andhrapradesh 535005.",
+            "offerDate": current_date_obj.strftime("%B %d, %Y"),
+            "jobTitle": offer_data.get("role") or "Employee",
+            "department": "Development",
+            "reportingManager": "Manager",
+            "joiningDate": offer_data.get("joining_date") or current_date_obj.strftime("%B %d, %Y"),
+            "workLocation": offer_data.get("location") or "Rolugunta[Visakhapatnam]",
+            "ctc": str(offer_data.get("package") or "0")
         }
         
-        html_content = template.render(context)
         temp_pdf = os.path.join(ASSETS_DIR, f"Offer_Letter_{offer_data.get('employee_id')}.pdf")
         
-        with open(temp_pdf, "wb") as f:
-            pisa_status = pisa.CreatePDF(html_content, dest=f)
+        # Execute the Node.js generator
+        script_path = os.path.join(os.path.dirname(__file__), "generate_offer.js")
+        letterhead_path = os.path.join(BACKEND_ROOT, "static", "offer_letters", "LETTER HEAD.pdf")
+        
+        # Fallback to any other potential location if needed, otherwise rely on letterhead_path
+        if not os.path.exists(letterhead_path):
+            letterhead_path = os.path.join(os.path.dirname(__file__), "LETTER HEAD.pdf")
             
-        if pisa_status.err:
-            raise Exception("PDF generation error")
+        try:
+            result = subprocess.run(
+                ["node", script_path, json.dumps(mapped_data), letterhead_path, temp_pdf],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            print("Node.js PDF Generation Error:", e.stderr)
+            raise Exception(f"PDF generation error: {e.stderr}")
             
         return temp_pdf
