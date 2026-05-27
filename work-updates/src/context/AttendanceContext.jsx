@@ -46,7 +46,28 @@ export const AttendanceProvider = ({ children }) => {
     const { user } = useAuth();
     const { selectedProjectId } = useProjectFilter();
     const [logs, setLogs] = useState([]);
-    const [activeLog, setActiveLog] = useState(null);
+    
+    // Initialize activeLog from localStorage to prevent flashing 'Check In' button
+    const [activeLog, setActiveLog] = useState(() => {
+        try {
+            const empId = user?.employee_id || user?.employeeId || user?.id;
+            if (empId) {
+                const stored = localStorage.getItem(`activeLog_${empId}`);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const todayStr = getISTDate();
+                    // Only use it if it's for today and hasn't checked out
+                    if (normalizeDate(parsed.date) === todayStr && !parsed.checkOutTime && !parsed.check_out && !parsed.checkOut) {
+                        return parsed;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse stored active log", e);
+        }
+        return null;
+    });
+
     const [isUpdating, setIsUpdating] = useState(false);
     const [locationStatus, setLocationStatus] = useState(''); // '', 'Searching GPS...', 'Falling back to IP...', 'Success'
     const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
@@ -75,6 +96,11 @@ export const AttendanceProvider = ({ children }) => {
                 normalizeDate(l.date) === todayStr
             );
             setActiveLog(active || null);
+            if (active) {
+                localStorage.setItem(`activeLog_${empId}`, JSON.stringify(active));
+            } else {
+                localStorage.removeItem(`activeLog_${empId}`);
+            }
         } catch (error) {
             console.error("❌ Failed to fetch attendance logs:", error);
         } finally {
@@ -82,6 +108,23 @@ export const AttendanceProvider = ({ children }) => {
             setIsUpdating(false);
         }
     }, [user, selectedProjectId]); // Removed isUpdating from deps to prevent re-creation loop
+    
+    // Sync activeLog when user changes
+    useEffect(() => {
+        const empId = user?.employee_id || user?.employeeId || user?.id;
+        if (empId) {
+            try {
+                const stored = localStorage.getItem(`activeLog_${empId}`);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const todayStr = getISTDate();
+                    if (normalizeDate(parsed.date) === todayStr && !parsed.checkOutTime && !parsed.check_out && !parsed.checkOut) {
+                        setActiveLog(parsed);
+                    }
+                }
+            } catch (e) {}
+        }
+    }, [user]);
 
     useEffect(() => {
         fetchLogs();
@@ -348,6 +391,7 @@ export const AttendanceProvider = ({ children }) => {
             if (newLog.already_checked_in) {
                 setLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, ...newLog } : l));
                 setActiveLog(newLog);
+                localStorage.setItem(`activeLog_${empId}`, JSON.stringify(newLog));
                 setPopup({
                     title: "Already Checked In",
                     message: "Already Checked In",
@@ -359,6 +403,7 @@ export const AttendanceProvider = ({ children }) => {
 
             setLogs(prev => [newLog, ...prev]);
             setActiveLog(newLog);
+            localStorage.setItem(`activeLog_${empId}`, JSON.stringify(newLog));
             setPopup({
                 title: "Check-In Successful",
                 message: "Your attendance check-in is complete.",
@@ -437,6 +482,7 @@ export const AttendanceProvider = ({ children }) => {
             if (updatedLog) {
                 setLogs(prev => prev.map(l => l.id === updatedLog.id ? updatedLog : l));
                 setActiveLog(null);
+                localStorage.removeItem(`activeLog_${empId}`);
                 setPopup({
                     title: "Check-Out Successful",
                     message: "You have checked out successfully for today.",
