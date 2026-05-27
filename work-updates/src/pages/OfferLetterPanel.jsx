@@ -67,8 +67,8 @@ const OfferLetterPanel = () => {
     };
 
     const filteredOffers = offerLetters.filter(offer =>
-        offer.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        offer.employee_id?.toLowerCase().includes(searchQuery.toLowerCase())
+        (offer.employeeName || offer.employee_name || '')?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (offer.employeeId || offer.employee_id || '')?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -259,22 +259,22 @@ const OfferLetterPanel = () => {
                                     </tr>
                                 ) : filteredOffers.length > 0 ? (
                                     filteredOffers.map((offer) => (
-                                        <tr key={offer.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <tr key={offer.id || offer._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{offer.employee_name}</span>
+                                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{offer.employeeName || offer.employee_name}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">{offer.employee_id}</span>
+                                                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">{offer.employeeId || offer.employee_id}</span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-sm text-slate-600 dark:text-slate-300">{offer.role}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-sm text-slate-600 dark:text-slate-300">{offer.joining_date}</span>
+                                                <span className="text-sm text-slate-600 dark:text-slate-300">{offer.joiningDate || offer.joining_date}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <button
-                                                    onClick={() => downloadOfferLetter(offer.employee_id)}
+                                                    onClick={() => downloadOfferLetter(offer.employeeId || offer.employee_id)}
                                                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all border border-blue-100 dark:border-blue-900/50"
                                                 >
                                                     <Download className="h-3.5 w-3.5" />

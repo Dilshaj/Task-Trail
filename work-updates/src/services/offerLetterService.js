@@ -30,14 +30,30 @@ export const getOfferLetters = async (projectId = null) => {
 
 export const downloadOfferLetter = async (employeeId) => {
     try {
-        const response = await api({
-            url: `${API_URL}/${employeeId}`,
-            method: 'GET',
-            responseType: 'blob', // Important
-        });
+        const offers = await getOfferLetters();
+        const offer = offers.find(o => String(o.employeeId || o.employee_id) === String(employeeId));
+        if (!offer) {
+            alert('Offer letter details not found in database.');
+            return;
+        }
 
+        const mappedData = {
+            candidateName: offer.employeeName || offer.employee_name || "Unknown Candidate",
+            candidateAddress: "Ainada, Visakhapatnam, Andhrapradesh 535005.",
+            offerDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            jobTitle: offer.role || "Employee",
+            department: "Development",
+            reportingManager: "Manager",
+            joiningDate: offer.joiningDate || offer.joining_date || new Date().toLocaleDateString(),
+            workLocation: offer.location || "Rolugunta[Visakhapatnam]",
+            ctc: offer.package ? String(offer.package) : "0"
+        };
+
+        const pdfBytes = await generatePDF_OptionA(mappedData);
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
         // Create blob link to download
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `OfferLetter_${employeeId}.pdf`);
@@ -49,7 +65,7 @@ export const downloadOfferLetter = async (employeeId) => {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Download error:', error);
-        alert('Failed to download offer letter. Please try again.');
+        alert('Failed to generate PDF. Please try again.');
     }
 };
 
