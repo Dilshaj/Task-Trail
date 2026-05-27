@@ -172,7 +172,10 @@ function formatCurrency(val) {
  */
 export async function generatePDF_OptionA(data, customLetterheadUrl = '/LETTER HEAD.pdf') {
     // In browser, we must fetch the letterhead PDF via URL instead of fs.readFileSync
-    const response = await fetch(customLetterheadUrl);
+    // Use encodeURI for spaces and add a cache-buster to prevent loading cached index.html fallbacks
+    const urlWithCacheBuster = `${encodeURI(customLetterheadUrl)}?v=${Date.now()}`;
+    const response = await fetch(urlWithCacheBuster);
+    
     if (!response.ok) {
         throw new Error(`Letterhead template PDF not found at ${customLetterheadUrl}. Please ensure it is placed in the public directory.`);
     }
