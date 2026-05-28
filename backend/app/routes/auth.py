@@ -11,6 +11,7 @@ from app.db.mongo import db
 from app.services import auth_service
 from app.core.config import settings
 from app.schemas.schemas import LoginRequest, ChangePasswordRequest
+from app.middleware.rate_limiter import rate_limit_login
 
 router = APIRouter(prefix="/auth")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
@@ -141,7 +142,7 @@ async def verify_domain_employee_access(current_user: dict, employee_role: str):
         )
 
 @router.post("/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, _: None = Depends(rate_limit_login)):
     """
     Login endpoint mapped to the EXACT contract expected by Admin/User Dashboards.
     """

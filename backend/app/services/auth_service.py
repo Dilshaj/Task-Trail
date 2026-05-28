@@ -48,7 +48,17 @@ async def authenticate_user(identifier: str, password: str):
         logger.warning(f"AUTH TRACE: Database not connected for login attempt [{identifier}]")
         return None
     try:
+        if not isinstance(identifier, str):
+            logger.warning(f"AUTH TRACE: Non-string identifier rejected to prevent NoSQL injection.")
+            return None
+
         clean_id = identifier.strip()
+        
+        # Guard against NoSQL injection / operator characters in query values
+        if any(char in clean_id for char in ["$", "{", "}", "[", "]", ":"]):
+            logger.warning(f"AUTH TRACE: Potential NoSQL injection attempt rejected: [{clean_id}]")
+            return None
+
         logger.info(f"AUTH TRACE: Login attempt for [{clean_id}]")
 
         import re

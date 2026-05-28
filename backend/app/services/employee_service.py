@@ -63,6 +63,10 @@ def format_employee(emp):
     if not emp:
         return None
         
+    # 🛡️ GLOBAL CREDENTIAL EXCLUSION
+    for key in ["password_hash", "password", "refresh_token", "face_descriptor", "face_encoding", "face_image"]:
+        emp.pop(key, None)
+        
     avatar = emp.get("avatar")
     name = emp.get("name", "User")
     
