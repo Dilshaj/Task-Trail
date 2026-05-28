@@ -118,7 +118,7 @@ def _calculate_euclidean_distance(v1: list, v2: list) -> float:
     except (ValueError, TypeError):
         return float('inf')
 
-async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id: str = None):
+async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = None, employee_id=None):
     """Fetches all logs from MongoDB with strict project isolation."""
     if db.db is None:
         return []
@@ -126,13 +126,19 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
         query = {}
         
         if employee_id:
-            emp_id_clean = str(employee_id).strip()
-            # Support both string and integer IDs just in case
-            id_variants = [emp_id_clean]
-            try:
-                id_variants.append(int(emp_id_clean))
-            except:
-                pass
+            raw_ids = employee_id if isinstance(employee_id, (list, tuple, set)) else [employee_id]
+            id_variants = []
+            for item in raw_ids:
+                emp_id_clean = str(item).strip()
+                if not emp_id_clean:
+                    continue
+                id_variants.append(emp_id_clean)
+                try:
+                    id_variants.append(int(emp_id_clean))
+                except:
+                    pass
+            if not id_variants:
+                return []
             query["employee_id"] = {"$in": id_variants}
             logger.info(f"[ATTENDANCE] Querying with variants: {id_variants}")
         elif project_id and str(project_id).lower() not in ["null", "undefined", "none", ""]:
@@ -149,7 +155,7 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
 
         # 1. Fetch logs
         logger.info(f"[ATTENDANCE] Final Query: {query}")
-        cursor = db.attendance.find(query).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
+        cursor = db.attendance.find(query, {"face_image": 0}).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(limit)
         logs = await cursor.to_list(limit)
         logger.info(f"[ATTENDANCE] Found {len(logs)} raw logs for query: {query}")
         
@@ -158,7 +164,10 @@ async def get_all_attendance(skip: int = 0, limit: int = 100, project_id: str = 
 
         # OPTIMIZATION: Batch Fetch Users to prevent N+1 Timeouts
         unique_emp_ids = list(set([l["employee_id"] for l in logs]))
-        users_raw = await db.employees.find({"employee_id": {"$in": unique_emp_ids}}).to_list(len(unique_emp_ids))
+        users_raw = await db.employees.find(
+            {"employee_id": {"$in": unique_emp_ids}},
+            {"name": 1, "employee_id": 1, "project_id": 1}
+        ).to_list(len(unique_emp_ids))
         user_map = {u["employee_id"]: u for u in users_raw}
 
         # 3. Format and enrich
@@ -189,8 +198,15 @@ async def get_active_checkin(employee_id: str, current_date: str = None):
     if db.db is None:
         return None
     try:
+        emp_id_clean = str(employee_id).strip()
+        id_variants = [emp_id_clean]
+        try:
+            id_variants.append(int(emp_id_clean))
+        except:
+            pass
+            
         query = {
-            "employee_id": employee_id,
+            "employee_id": {"$in": id_variants},
             "check_out": None
         }
         if current_date:
@@ -206,18 +222,127 @@ async def get_employee_status(employee_id: str):
     if db.db is None:
         return {"is_checked_in": False}
     try:
-        current_date, _ = get_current_timestamps()
-        active = await get_active_checkin(employee_id, current_date)
+        emp_id_clean = str(employee_id).strip()
+        id_variants = [emp_id_clean]
+        try:
+            id_variants.append(int(emp_id_clean))
+        except:
+            pass
+
+        user = await db.employees.find_one({"employee_id": {"$in": id_variants}})
+        is_checked_in_db = user.get("is_checked_in", False) if user else False
+
+        # Find active check-in (check_out is None, date is None)
+        active = await get_active_checkin(employee_id, None)
         
+        if is_checked_in_db and active:
+            return {
+                "is_checked_in": True,
+                "active_log": format_attendance(active)
+            }
+        
+        # Fallback: if we have an active checkin, use it
         if active:
             return {
                 "is_checked_in": True,
                 "active_log": format_attendance(active)
             }
+            
         return {"is_checked_in": False}
     except Exception as e:
         logger.error(f"Error fetching status: {e}")
         return {"is_checked_in": False}
+
+async def get_today_status(employee_id: str):
+    """Returns today's attendance status for an employee (IST context)."""
+    if db.db is None:
+        return {
+            "checked_in": False,
+            "checked_out": False,
+            "check_in_time": None,
+            "check_out_time": None,
+            "check_in_raw": None,
+            "check_out_raw": None,
+            "active_log": None
+        }
+    try:
+        emp_id_clean = str(employee_id).strip()
+        id_variants = [emp_id_clean]
+        try:
+            id_variants.append(int(emp_id_clean))
+        except:
+            pass
+
+        current_date, _ = get_current_timestamps()
+        
+        today_log = await db.attendance.find_one({
+            "employee_id": {"$in": id_variants},
+            "date": current_date
+        })
+
+        if not today_log:
+            return {
+                "checked_in": False,
+                "checked_out": False,
+                "check_in_time": None,
+                "check_out_time": None,
+                "check_in_raw": None,
+                "check_out_raw": None,
+                "active_log": None
+            }
+
+        check_in_utc = today_log.get("check_in")
+        check_out_utc = today_log.get("check_out")
+
+        def format_time_ist(utc_iso_str):
+            if not utc_iso_str:
+                return None
+            try:
+                clean_str = utc_iso_str.replace("Z", "+00:00")
+                dt_utc = datetime.fromisoformat(clean_str)
+                dt_ist = dt_utc.astimezone(timezone(timedelta(hours=5, minutes=30)))
+                return dt_ist.strftime("%I:%M %p")
+            except Exception as e:
+                logger.error(f"Error formatting time: {e}")
+                return None
+
+        checked_in_raw = check_in_utc is not None
+        checked_out_raw = check_out_utc is not None
+
+        # Determine returned checked_in and checked_out states based on user specifications
+        if checked_in_raw and not checked_out_raw:
+            checked_in = True
+            checked_out = False
+        elif checked_out_raw:
+            checked_in = False
+            checked_out = True
+        else:
+            checked_in = False
+            checked_out = False
+
+        formatted = format_attendance(today_log)
+
+        return {
+            "checked_in": checked_in,
+            "checked_out": checked_out,
+            "check_in_time": format_time_ist(check_in_utc),
+            "check_out_time": format_time_ist(check_out_utc),
+            "check_in_raw": check_in_utc,
+            "check_out_raw": check_out_utc,
+            "active_log": formatted if (checked_in_raw and not checked_out_raw) else None
+        }
+    except Exception as e:
+        logger.error(f"Error getting today status: {e}")
+        return {
+            "checked_in": False,
+            "checked_out": False,
+            "check_in_time": None,
+            "check_out_time": None,
+            "check_in_raw": None,
+            "check_out_raw": None,
+            "active_log": None
+        }
+
 
 async def update_attendance_address_task(log_id, lat: float, lng: float):
     """Asynchronous background task to reverse geocode and update the address in the log."""
@@ -273,8 +398,15 @@ async def check_in(
         current_date, current_time = get_current_timestamps()
 
         # Duplicate Prevention
+        emp_id_clean = str(employee_id).strip()
+        id_variants = [emp_id_clean]
+        try:
+            id_variants.append(int(emp_id_clean))
+        except:
+            pass
+
         existing_log = await db.attendance.find_one({
-            "employee_id": employee_id,
+            "employee_id": {"$in": id_variants},
             "date": current_date
         })
         if existing_log:
@@ -401,8 +533,15 @@ async def check_out(employee_id: str):
         current_date, current_time = get_current_timestamps()
 
         # Check existing attendance log for today
+        emp_id_clean = str(employee_id).strip()
+        id_variants = [emp_id_clean]
+        try:
+            id_variants.append(int(emp_id_clean))
+        except:
+            pass
+
         existing_log = await db.attendance.find_one({
-            "employee_id": employee_id,
+            "employee_id": {"$in": id_variants},
             "date": current_date
         })
 
@@ -414,7 +553,7 @@ async def check_out(employee_id: str):
 
         result = await db.attendance.update_one(
             {
-                "employee_id": employee_id, 
+                "employee_id": {"$in": id_variants}, 
                 "date": current_date, 
                 "check_out": None
             },
@@ -423,18 +562,18 @@ async def check_out(employee_id: str):
 
         # Sync status to Employee record
         await db.employees.update_one(
-            {"employee_id": employee_id},
+            {"employee_id": {"$in": id_variants}},
             {"$set": {"is_checked_in": False, "last_check_out": current_time}}
         )
         
         if result.modified_count > 0:
             updated_log = await db.attendance.find_one({
-                "employee_id": employee_id, 
+                "employee_id": {"$in": id_variants}, 
                 "date": current_date, 
                 "check_out": current_time
             })
             
-            user = await db.employees.find_one({"employee_id": employee_id})
+            user = await db.employees.find_one({"employee_id": {"$in": id_variants}})
             updated_log["userName"] = user.get("name") if user else "Unknown"
             updated_log["userId"] = str(user.get("_id")) if user else None
             
@@ -497,3 +636,96 @@ async def export_attendance_to_excel(project_id: str = None):
     except Exception as e:
         logger.error(f"[EXPORT ERROR] {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate Excel report")
+
+async def perform_auto_checkout():
+    """Finds all attendance logs without check_out and checks them out at 9:00 PM IST."""
+    now_utc = datetime.now(timezone.utc)
+    now_ist = now_utc + timedelta(hours=5, minutes=30)
+    if now_ist.hour < 21:
+        logger.warning(f"[AUTO CHECKOUT] Aborted. Current IST hour is {now_ist.hour}, which is before 9:00 PM.")
+        return
+
+    if db.db is None:
+        logger.error("[AUTO CHECKOUT] Database not connected.")
+        return
+        
+    try:
+        # Find all attendance logs where check_out is None
+        cursor = db.attendance.find({"check_out": None})
+        logs = await cursor.to_list(None)
+        
+        if not logs:
+            logger.info("[AUTO CHECKOUT] No active check-in sessions to auto-checkout.")
+            return
+
+        logger.info(f"[AUTO CHECKOUT] Found {len(logs)} active sessions for auto-checkout.")
+        
+        for log in logs:
+            log_date = log.get("date")
+            employee_id = log.get("employee_id")
+            
+            # Construct 9:00 PM IST UTC string for this log's date
+            try:
+                dt_ist = datetime.strptime(log_date, "%Y-%m-%d")
+                dt_ist = dt_ist.replace(hour=21, minute=0, second=0, microsecond=0)
+                dt_utc = dt_ist - timedelta(hours=5, minutes=30)
+                checkout_utc_str = dt_utc.isoformat().replace("+00:00", "") + "Z"
+            except Exception as parse_err:
+                logger.error(f"[AUTO CHECKOUT] Date parse error for log {log.get('_id')}: {parse_err}")
+                # Fallback to current 9:00 PM IST UTC time
+                now_utc = datetime.now(timezone.utc)
+                now_ist = now_utc + timedelta(hours=5, minutes=30)
+                now_ist = now_ist.replace(hour=21, minute=0, second=0, microsecond=0)
+                dt_utc = now_ist - timedelta(hours=5, minutes=30)
+                checkout_utc_str = dt_utc.isoformat().replace("+00:00", "") + "Z"
+
+            # Update attendance log
+            await db.attendance.update_one(
+                {"_id": log["_id"]},
+                {"$set": {
+                    "check_out": checkout_utc_str,
+                    "status": "Completed"
+                }}
+            )
+            
+            # Update corresponding employee
+            id_variants = [str(employee_id).strip()]
+            try:
+                id_variants.append(int(str(employee_id).strip()))
+            except:
+                pass
+                
+            await db.employees.update_one(
+                {"employee_id": {"$in": id_variants}},
+                {"$set": {
+                    "is_checked_in": False,
+                    "last_check_out": checkout_utc_str
+                }}
+            )
+            logger.info(f"[AUTO CHECKOUT SUCCESS] Auto-checked out employee {employee_id} for date {log_date} at 9:00 PM IST.")
+            
+    except Exception as e:
+        logger.error(f"[AUTO CHECKOUT ERROR] Exception during auto-checkout: {e}")
+
+async def auto_checkout_scheduler():
+    """Background loop checking time and executing auto-checkout at 9:00 PM IST."""
+    logger.info("[AUTO CHECKOUT SCHEDULER] Background task started.")
+    last_run_date = None
+    while True:
+        try:
+            now_utc = datetime.now(timezone.utc)
+            now_ist = now_utc + timedelta(hours=5, minutes=30)
+            current_date_ist = now_ist.strftime("%Y-%m-%d")
+            
+            # If current time is 9:00 PM IST or later, and we haven't run today yet
+            if now_ist.hour >= 21 and last_run_date != current_date_ist:
+                logger.info(f"[AUTO CHECKOUT SCHEDULER] Triggering 9 PM Auto-Checkout for {current_date_ist}")
+                await perform_auto_checkout()
+                last_run_date = current_date_ist
+                
+        except Exception as loop_err:
+            logger.error(f"[AUTO CHECKOUT SCHEDULER] Loop error: {loop_err}")
+            
+        # Sleep for 60 seconds
+        await asyncio.sleep(60)
+

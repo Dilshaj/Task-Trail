@@ -128,7 +128,7 @@ const LeavePanel = ({ isAdmin }) => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     {/* 🛡️ Level 1: Team Lead Approval Action */}
-                                                    {user?.role?.toUpperCase() === 'TEAM_LEAD' && leave.status === 'PENDING_TEAM_LEAD' && (
+                                                    {['TEAM_LEAD', 'DOMAIN_LEAD'].includes(user?.role?.toUpperCase()) && leave.status === 'PENDING_TEAM_LEAD' && (
                                                         <>
                                                             <button 
                                                                 onClick={() => updateLeaveStatus(leave.id, 'PENDING_MANAGEMENT')}

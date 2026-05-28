@@ -27,15 +27,15 @@ const PrivateRoute = ({ children, roleRequired }) => {
   if (!user) return <Navigate to="/" />;
   
   const role = user.role?.toUpperCase();
-  const isAdminOrTL = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'ADMIN';
+  const isAdminOrTL = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD' || role === 'ADMIN';
 
   if (roleRequired === 'admin') {
     if (!isAdminOrTL) {
       return <Navigate to="/dashboard" />;
     }
     
-    // TEAM_LEAD cannot access global admin dashboard
-    if (role === 'TEAM_LEAD' && window.location.pathname === '/admin') {
+    // TEAM_LEAD / DOMAIN_LEAD cannot access global admin dashboard
+    if ((role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD') && window.location.pathname === '/admin') {
       return <Navigate to="/project-dashboard" />;
     }
   }

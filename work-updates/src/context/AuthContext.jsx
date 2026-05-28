@@ -60,18 +60,8 @@ export const AuthProvider = ({ children }) => {
         };
         window.addEventListener('storage', syncAuth);
         
-        // Polling fallback for the SAME tab
-        const interval = setInterval(() => {
-            const saved = localStorage.getItem('user_v2');
-            const parsed = saved ? JSON.parse(saved) : null;
-            if (JSON.stringify(parsed?.token) !== JSON.stringify(user?.token)) {
-                setUser(parsed);
-            }
-        }, 5000);
-
         return () => {
             window.removeEventListener('storage', syncAuth);
-            clearInterval(interval);
         };
     }, [user?.token]);
 

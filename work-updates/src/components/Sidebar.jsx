@@ -13,7 +13,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     const role = user?.role?.toUpperCase();
     const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
     const isTeamLead = role === 'TEAM_LEAD';
-    const isAdminOrTL = isSuperAdmin || isTeamLead;
+    const isDomainLead = role === 'DOMAIN_LEAD';
+    const isAdminOrTL = isSuperAdmin || isTeamLead || isDomainLead;
 
     const menu = [
         // Common Dashboard
@@ -28,8 +29,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         
         // Items visible to both Admin and TL
         { label: 'Employees', path: '/admin/employees', icon: <Users className="h-5 w-5" />, hidden: !isAdminOrTL },
-        { label: 'Attendance', path: '/admin/attendance', icon: <CalendarClock className="h-5 w-5" />, hidden: !isSuperAdmin },
-        { label: 'Leaves', path: '/admin/leaves', icon: <CalendarClock className="h-5 w-5" />, hidden: !isSuperAdmin },
+        { label: 'Attendance', path: '/admin/attendance', icon: <CalendarClock className="h-5 w-5" />, hidden: !isSuperAdmin && !isDomainLead },
+        { label: 'Leaves', path: '/admin/leaves', icon: <CalendarClock className="h-5 w-5" />, hidden: !isSuperAdmin && !isDomainLead },
         { label: 'Offer Letter', path: '/admin/offer-letter', icon: <FileText className="h-5 w-5" />, hidden: !isSuperAdmin },
         { label: 'Pay Slip', path: '/admin/pay-slip', icon: <FileText className="h-5 w-5" />, hidden: !isSuperAdmin },
 

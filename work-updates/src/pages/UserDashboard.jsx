@@ -37,6 +37,10 @@ const UserDashboard = () => {
                        employees?.find(e => e.id === user?.id) || 
                        user;
 
+    const isCurrentlyCheckedIn = activeLog || user?.isCheckedIn || user?.is_checked_in;
+    const checkInTime = activeLog?.checkInTime || activeLog?.checkIn || activeLog?.check_in || 
+                        ((user?.isCheckedIn || user?.is_checked_in) ? (user?.lastCheckIn || user?.last_check_in) : null);
+
     React.useEffect(() => {
         if (empId) {
             import('../services/paySlipService').then(({ getMyPaySlips }) => {
@@ -205,7 +209,7 @@ const UserDashboard = () => {
                                 alt={user?.name}
                                 className="h-28 w-28 rounded-2xl object-cover border-4 border-white dark:border-slate-800 shadow-xl"
                             />
-                            {activeLog && (
+                            {isCurrentlyCheckedIn && (
                                 <div className="absolute -bottom-2 -right-2 bg-emerald-500 border-4 border-white dark:border-slate-800 w-6 h-6 rounded-full shadow-lg animate-pulse" title="Active Check-in"></div>
                             )}
                         </div>
@@ -283,7 +287,7 @@ const UserDashboard = () => {
                             return null;
                         })()}
 
-                        {!activeLog ? (
+                        {!isCurrentlyCheckedIn ? (
                             <button
                                 onClick={handleCheckIn}
                                 disabled={loading || (() => {
@@ -324,7 +328,7 @@ const UserDashboard = () => {
                                     <span className="text-[10px] text-slate-400 font-bold uppercase">Working Since</span>
                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                         {(() => {
-                                            const timeStr = activeLog.checkInTime || activeLog.checkIn || activeLog.check_in;
+                                            const timeStr = checkInTime;
                                             if (!timeStr) return '--:--';
                                             const date = new Date(timeStr);
                                             return isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -406,7 +410,7 @@ const UserDashboard = () => {
                     <div>
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Hours (Today)</p>
                         <h3 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
-                            {activeLog ? calculateActiveHours(activeLog.checkInTime || activeLog.checkIn || activeLog.check_in) : '0h 0m'}
+                            {isCurrentlyCheckedIn ? calculateActiveHours(checkInTime) : '0h 0m'}
                         </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-transform group-hover:scale-110">
@@ -689,7 +693,10 @@ const UserDashboard = () => {
             <ConfirmationModal
                 isOpen={showCheckoutConfirm}
                 onClose={() => setShowCheckoutConfirm(false)}
-                onConfirm={handleCheckOut}
+                onConfirm={async () => {
+                    await handleCheckOut();
+                    setShowCheckoutConfirm(false);
+                }}
                 title="Confirm Check-Out"
                 message="Are you sure you want to check out? Your active working session for today will be ended."
                 confirmText="Yes, Check Out"

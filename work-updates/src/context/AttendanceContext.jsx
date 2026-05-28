@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { getAttendanceLogs, checkIn, checkOut } from '../services/attendanceService';
+import { getAttendanceLogs, checkIn, checkOut, getCurrentStatus, getTodayStatus } from '../services/attendanceService';
 import { useAuth } from './AuthContext';
 import { useProjectFilter } from './ProjectFilterContext';
 import FaceVerificationModal from '../components/FaceVerificationModal';
@@ -47,25 +47,10 @@ export const AttendanceProvider = ({ children }) => {
     const { selectedProjectId } = useProjectFilter();
     const [logs, setLogs] = useState([]);
     
-    // Initialize activeLog from localStorage to prevent flashing 'Check In' button
-    const [activeLog, setActiveLog] = useState(() => {
-        try {
-            const empId = user?.employee_id || user?.employeeId || user?.id;
-            if (empId) {
-                const stored = localStorage.getItem(`activeLog_${empId}`);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    const todayStr = getISTDate();
-                    // Only use it if it's for today and hasn't checked out
-                    if (normalizeDate(parsed.date) === todayStr && !parsed.checkOutTime && !parsed.check_out && !parsed.checkOut) {
-                        return parsed;
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Failed to parse stored active log", e);
-        }
-        return null;
+    const [activeLog, setActiveLog] = useState(null);
+    const [attendanceState, setAttendanceState] = useState({
+        checked_in: false,
+        checked_out: false
     });
 
     const [isUpdating, setIsUpdating] = useState(false);
@@ -81,25 +66,33 @@ export const AttendanceProvider = ({ children }) => {
         updatingRef.current = true;
         setIsUpdating(true);
         try {
-            // 1. Fetch history (Ensuring project-id is passed to bypass isolation filters)
             const isAdmin = user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'SUPER_ADMIN';
             const projId = isAdmin ? selectedProjectId : (user.projectId || user.project_id);
-            const data = await getAttendanceLogs(projId);
-            setLogs(data);
+            
+            // 🚀 Fetch history and today's status in parallel to prevent N+1 and slow query blocking
+            const [logsData, statusData] = await Promise.all([
+                getAttendanceLogs(projId).catch(err => {
+                    console.error("Failed to fetch history logs:", err);
+                    return [];
+                }),
+                getTodayStatus().catch(err => {
+                    console.error("Failed to fetch today status:", err);
+                    return null;
+                })
+            ]);
 
-            // 2. Find active log for the current user manually (Avoids 404 on new endpoints)
-            const empId = user.employee_id || user.employeeId || user.id;
-            const todayStr = getISTDate();
-            const active = data.find(l => 
-                String(l.employeeId) === String(empId) && 
-                l.status === 'Checked In' &&
-                normalizeDate(l.date) === todayStr
-            );
-            setActiveLog(active || null);
-            if (active) {
-                localStorage.setItem(`activeLog_${empId}`, JSON.stringify(active));
-            } else {
-                localStorage.removeItem(`activeLog_${empId}`);
+            setLogs(logsData);
+
+            if (statusData) {
+                setAttendanceState({
+                    checked_in: statusData.checked_in,
+                    checked_out: statusData.checked_out
+                });
+                if (statusData.checked_in && !statusData.checked_out) {
+                    setActiveLog(statusData.active_log || { check_in: statusData.check_in_raw });
+                } else {
+                    setActiveLog(null);
+                }
             }
         } catch (error) {
             console.error("❌ Failed to fetch attendance logs:", error);
@@ -109,22 +102,7 @@ export const AttendanceProvider = ({ children }) => {
         }
     }, [user, selectedProjectId]); // Removed isUpdating from deps to prevent re-creation loop
     
-    // Sync activeLog when user changes
-    useEffect(() => {
-        const empId = user?.employee_id || user?.employeeId || user?.id;
-        if (empId) {
-            try {
-                const stored = localStorage.getItem(`activeLog_${empId}`);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    const todayStr = getISTDate();
-                    if (normalizeDate(parsed.date) === todayStr && !parsed.checkOutTime && !parsed.check_out && !parsed.checkOut) {
-                        setActiveLog(parsed);
-                    }
-                }
-            } catch (e) {}
-        }
-    }, [user]);
+    // Removed localStorage sync effect
 
     useEffect(() => {
         fetchLogs();
@@ -158,6 +136,14 @@ export const AttendanceProvider = ({ children }) => {
                     error: "Already Checked In"
                 };
             }
+        }
+        
+        // Check activeLog as well to be absolutely sure
+        if (activeLog && normalizeDate(activeLog.date) === todayStr) {
+             return {
+                 canCheckIn: false,
+                 error: "Already Checked In"
+             };
         }
         
         return { canCheckIn: true };
@@ -391,7 +377,10 @@ export const AttendanceProvider = ({ children }) => {
             if (newLog.already_checked_in) {
                 setLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, ...newLog } : l));
                 setActiveLog(newLog);
-                localStorage.setItem(`activeLog_${empId}`, JSON.stringify(newLog));
+                setAttendanceState({
+                    checked_in: true,
+                    checked_out: false
+                });
                 setPopup({
                     title: "Already Checked In",
                     message: "Already Checked In",
@@ -403,7 +392,10 @@ export const AttendanceProvider = ({ children }) => {
 
             setLogs(prev => [newLog, ...prev]);
             setActiveLog(newLog);
-            localStorage.setItem(`activeLog_${empId}`, JSON.stringify(newLog));
+            setAttendanceState({
+                checked_in: true,
+                checked_out: false
+            });
             setPopup({
                 title: "Check-In Successful",
                 message: "Your attendance check-in is complete.",
@@ -482,7 +474,10 @@ export const AttendanceProvider = ({ children }) => {
             if (updatedLog) {
                 setLogs(prev => prev.map(l => l.id === updatedLog.id ? updatedLog : l));
                 setActiveLog(null);
-                localStorage.removeItem(`activeLog_${empId}`);
+                setAttendanceState({
+                    checked_in: false,
+                    checked_out: true
+                });
                 setPopup({
                     title: "Check-Out Successful",
                     message: "You have checked out successfully for today.",
@@ -522,52 +517,18 @@ export const AttendanceProvider = ({ children }) => {
         }
     };
 
-    // 🚀 High-frequency sync for Admin Panel (Optimized)
-    const lastSyncRef = React.useRef(0);
 
-    useEffect(() => {
-        if (!user) return;
-
-        // Interval sync for near-live location visibility in admin dashboard
-        const interval = setInterval(() => {
-            fetchLogs(true);
-        }, 30000); // 🚀 Reduced polling frequency (30s) to prevent server overload
-
-        // Immediate sync on tab focus (Throttled to once every 5s)
-        const handleFocus = () => {
-            const now = Date.now();
-            if (now - lastSyncRef.current < 15000) return; // 🚀 Increased throttle (15s)
-            lastSyncRef.current = now;
-            
-            // Background sync on tab focus
-            fetchLogs(true);
-        };
-
-        const onVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                handleFocus();
-            }
-        };
-
-        window.addEventListener('focus', handleFocus);
-        document.addEventListener('visibilitychange', onVisibilityChange);
-
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('focus', handleFocus);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
-        };
-    }, [user, fetchLogs]);
 
     const value = useMemo(() => ({
         logs,
         activeLog,
+        attendanceState,
         loading,
         locationStatus,
         fetchLogs,
         handleCheckIn,
         handleCheckOut
-    }), [logs, activeLog, loading, locationStatus, fetchLogs, handleCheckIn, handleCheckOut]);
+    }), [logs, activeLog, attendanceState, loading, locationStatus, fetchLogs, handleCheckIn, handleCheckOut]);
 
     return (
         <AttendanceContext.Provider value={value}>

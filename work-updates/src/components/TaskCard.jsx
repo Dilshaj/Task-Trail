@@ -7,7 +7,7 @@ import { formatDate } from '../utils/helpers';
 const TaskCard = ({ task, onStatusChange, onProgressChange, onEdit, onDelete, isUser, employee }) => {
     const { user } = useAuth();
     const role = user?.role?.toUpperCase();
-    const canEdit = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'ADMIN';
+    const canEdit = role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD' || role === 'ADMIN';
 
     const statusColors = {
         'Pending': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-900/50',

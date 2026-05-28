@@ -16,15 +16,26 @@ from app.db.optimize import sync_indexes
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    scheduler_task = None
     try:
         db.connect()
         logger.info("[DB] MongoDB Atlas connection established.")
         await sync_indexes()
+        from app.services.attendance_service import auto_checkout_scheduler
+        scheduler_task = asyncio.create_task(auto_checkout_scheduler())
     except Exception as e:
         logger.error(f"[STARTUP ERROR] {e}")
     yield
+    if scheduler_task:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            logger.info("[SHUTDOWN] Scheduler background task cancelled successfully.")
     db.close()
     logger.info("[SHUTDOWN] Closing connections...")
 

@@ -49,7 +49,10 @@ class EmployeeCreate(BaseModel):
     employee_id: str
     name: str
     role: str = "EMPLOYEE"
+    roleType: Optional[str] = None
+    domain: Optional[str] = None
     project_id: Optional[str] = None
+    projectName: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
     joining_date: Optional[str] = None
@@ -59,6 +62,9 @@ class EmployeeProgressUpdate(BaseModel):
     overall_progress_perc: float
 
 class EmployeeResponse(UserResponse):
+    roleType: Optional[str] = None
+    domain: Optional[str] = None
+    projectName: Optional[str] = None
     workProgress: float = 0.0
     overallProgress: float = 0.0
     dailyProgress: float = 0.0

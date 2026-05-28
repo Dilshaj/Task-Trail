@@ -1,7 +1,7 @@
 from typing import List, Optional
 from app.schemas.schemas import TaskResponse, TaskCreate, TaskStatusUpdate
 from app.services import task_service
-from app.routes.auth import get_current_user, require_role, get_project_filter, verify_project_access
+from app.routes.auth import get_current_user, require_role, get_project_filter, verify_project_access, verify_domain_employee_access
 from app.core.roles import Role
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 import logging
@@ -17,6 +17,19 @@ async def get_tasks(
     enforced_project_id: Optional[str] = Depends(get_project_filter)
 ):
     target_project = enforced_project_id or project_id
+    if current_user.get("role") == Role.DOMAIN_LEAD:
+        target_domain = current_user.get("domain")
+        if not target_domain:
+            raise HTTPException(status_code=403, detail="Domain Lead has no domain assigned.")
+        from app.services import employee_service
+        emps = await employee_service.get_employees(project_id=target_project, domain=target_domain)
+        emp_ids = [e["employeeId"] for e in emps if e.get("employeeId")]
+        if not emp_ids:
+            return []
+        all_tasks = await task_service.get_tasks_by_project(project_id=target_project)
+        tasks = [t for t in all_tasks if t.get("assignedTo") in emp_ids]
+        logger.info(f"✅ [TASKS][DOMAIN_LEAD] Found {len(tasks)} tasks for domain: {target_domain}")
+        return tasks
     tasks = await task_service.get_tasks_by_project(project_id=target_project)
     logger.info(f"✅ [TASKS] Found {len(tasks)} tasks for project_id: {target_project}")
     return tasks
@@ -43,7 +56,7 @@ async def get_employee_tasks(
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task: TaskCreate,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """Create a new task in MongoDB."""
     from app.services import employee_service
@@ -56,7 +69,22 @@ async def create_task(
             
         # 1. Force the task to belong to the Lead's project
         task.projectId = lead_project_id
-        
+    elif current_user["role"] == Role.DOMAIN_LEAD:
+        lead_project_id = str(current_user.get("project_id"))
+        target_domain = current_user.get("domain")
+        if not lead_project_id:
+            raise HTTPException(status_code=403, detail="Forbidden: Domain Lead has no project assigned.")
+        if not target_domain:
+            raise HTTPException(status_code=403, detail="Forbidden: Domain Lead has no domain assigned.")
+        task.projectId = lead_project_id
+        emp = await employee_service.get_employee_by_employee_id(task.assignedTo) or \
+              await employee_service.get_employee_by_id(task.assignedTo)
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found.")
+        if str(emp.get("projectId") or emp.get("project_id") or "") != lead_project_id:
+            raise HTTPException(status_code=403, detail="Forbidden: You can only assign tasks in your own project.")
+        await verify_domain_employee_access(current_user, emp.get("role", ""))
+
         # 2. 🔥 SECURITY CHECK: Verify the employee belongs to this project
         # Supports both ObjectId and string business IDs
         emp = await employee_service.get_employee_by_employee_id(task.assignedTo) or \
@@ -89,7 +117,7 @@ async def create_task(
 async def admin_update_task(
     id: str,
     task_data: dict,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """Full administrative update of a task."""
     logger.info(f"ADMIN UPDATE TASK: {id} by {current_user['role']}")
@@ -99,6 +127,12 @@ async def admin_update_task(
         
     if current_user["role"] == Role.TEAM_LEAD:
         verify_project_access(current_user, task.get("projectId"))
+    elif current_user["role"] == Role.DOMAIN_LEAD:
+        verify_project_access(current_user, task.get("projectId"))
+        from app.services import employee_service
+        emp = await employee_service.get_employee_by_employee_id(task.get("assignedTo")) or await employee_service.get_employee_by_id(task.get("assignedTo"))
+        if emp:
+            await verify_domain_employee_access(current_user, emp.get("role", ""))
         
     updated = await task_service.update_task(task_id=id, task_data=task_data)
     if not updated:
@@ -119,6 +153,11 @@ async def update_task_status(
         
     if current_user["role"] != Role.SUPER_ADMIN:
         verify_project_access(current_user, task.get("projectId"))
+        if current_user["role"] == Role.DOMAIN_LEAD:
+            from app.services import employee_service
+            emp = await employee_service.get_employee_by_employee_id(task.get("assignedTo")) or await employee_service.get_employee_by_id(task.get("assignedTo"))
+            if emp:
+                await verify_domain_employee_access(current_user, emp.get("role", ""))
 
     updated = await task_service.update_task_status(task_id=id, new_status=status_update.status)
     return updated
@@ -135,6 +174,11 @@ async def update_task_progress(
         
     if current_user["role"] != Role.SUPER_ADMIN:
         verify_project_access(current_user, task.get("projectId"))
+        if current_user["role"] == Role.DOMAIN_LEAD:
+            from app.services import employee_service
+            emp = await employee_service.get_employee_by_employee_id(task.get("assignedTo")) or await employee_service.get_employee_by_id(task.get("assignedTo"))
+            if emp:
+                await verify_domain_employee_access(current_user, emp.get("role", ""))
 
     progress = payload.get("progress", 0)
     updated = await task_service.update_task_progress(task_id=id, new_progress=float(progress))
@@ -143,7 +187,7 @@ async def update_task_progress(
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
     id: str,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """Delete task from MongoDB."""
     task = await task_service.get_task_by_id(id)
@@ -152,6 +196,12 @@ async def delete_task(
         
     if current_user["role"] == Role.TEAM_LEAD:
         verify_project_access(current_user, task.get("projectId"))
+    elif current_user["role"] == Role.DOMAIN_LEAD:
+        verify_project_access(current_user, task.get("projectId"))
+        from app.services import employee_service
+        emp = await employee_service.get_employee_by_employee_id(task.get("assignedTo")) or await employee_service.get_employee_by_id(task.get("assignedTo"))
+        if emp:
+            await verify_domain_employee_access(current_user, emp.get("role", ""))
 
     success = await task_service.delete_task(task_id=id)
     if not success:

@@ -15,11 +15,11 @@ export const ProjectFilterProvider = ({ children }) => {
         return (stored && stored !== 'undefined' && stored !== 'null') ? stored : null;
     });
 
-    // 🔒 RBAC Enforcement: TEAM_LEAD is locked to their project
+    // 🔒 RBAC Enforcement: TEAM_LEAD and DOMAIN_LEAD are locked to their project
     useEffect(() => {
         if (!user) return;
         const role = user?.role?.toUpperCase();
-        if (role === 'TEAM_LEAD' && user.projectId) {
+        if ((role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD') && user.projectId) {
             setSelectedProjectId(user.projectId);
             sessionStorage.setItem('selected_project_id', user.projectId);
         } else if (role === 'SUPER_ADMIN' || role === 'ADMIN') {

@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from datetime import datetime
 import logging
 import traceback
-from typing import List
+from typing import List, Optional
 
 from app.core.roles import Role
 from app.db.mongo import db
@@ -48,6 +48,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
             user["role"] = Role.SUPER_ADMIN
         elif raw_role == "TEAM_LEAD":
             user["role"] = Role.TEAM_LEAD
+        elif raw_role == "DOMAIN_LEAD":
+            user["role"] = Role.DOMAIN_LEAD
         else:
             user["role"] = Role.EMPLOYEE
             
@@ -85,11 +87,11 @@ async def get_project_filter(current_user: dict = Depends(get_current_user)):
         return None
         
     p_id = current_user.get("project_id")
-    if role == Role.TEAM_LEAD and not p_id:
-        logger.error(f"❌ TEAM_LEAD ERROR: User {current_user['employee_id']} has no project_id assigned.")
+    if role in [Role.TEAM_LEAD, Role.DOMAIN_LEAD] and not p_id:
+        logger.error(f"❌ {role} ERROR: User {current_user['employee_id']} has no project_id assigned.")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Team Lead has no project assigned."
+            detail=f"Forbidden: {role} has no project assigned."
         )
     return str(p_id) if p_id else ""
 
@@ -108,6 +110,34 @@ def verify_project_access(user: dict, project_id: str):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied: Resource belongs to another project."
+        )
+
+def get_enforced_domain(current_user: dict) -> Optional[str]:
+    """
+    Returns a normalized domain for DOMAIN_LEAD users.
+    """
+    if current_user.get("role") != Role.DOMAIN_LEAD:
+        return None
+    domain = current_user.get("domain")
+    if not domain:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Domain Lead is not assigned to any domain."
+        )
+    return str(domain).strip()
+
+async def verify_domain_employee_access(current_user: dict, employee_role: str):
+    """
+    DOMAIN_LEAD cannot access employees outside the assigned domain.
+    """
+    if current_user.get("role") != Role.DOMAIN_LEAD:
+        return
+    from app.utils.domain_utils import is_employee_in_domain
+    target_domain = get_enforced_domain(current_user)
+    if not is_employee_in_domain(employee_role or "", target_domain):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Employee belongs to another domain."
         )
 
 @router.post("/login")
@@ -138,14 +168,19 @@ async def login(request: LoginRequest):
             final_role = Role.SUPER_ADMIN
         elif raw_role == "TEAM_LEAD":
             final_role = Role.TEAM_LEAD
+        elif raw_role == "DOMAIN_LEAD":
+            final_role = Role.DOMAIN_LEAD
         else:
             final_role = Role.EMPLOYEE
 
-        # Generate Tokens with role and project_id
+        # Generate Tokens with role, project_id and domain
         token_data = {
             "sub": user["employee_id"], 
             "role": final_role,
-            "project_id": str(user.get("project_id") or "")
+            "project_id": str(user.get("project_id") or ""),
+            "projectName": str(user.get("project_name") or user.get("projectName") or ""),
+            "domain": str(user.get("domain") or ""),
+            "roleType": str(user.get("roleType") or final_role)
         }
         
         access_token = auth_service.create_access_token(data=token_data)
@@ -214,13 +249,18 @@ async def refresh_token(refresh_token: str):
         final_role = Role.SUPER_ADMIN
     elif raw_role == "TEAM_LEAD":
         final_role = Role.TEAM_LEAD
+    elif raw_role == "DOMAIN_LEAD":
+        final_role = Role.DOMAIN_LEAD
     else:
         final_role = Role.EMPLOYEE
 
     token_data = {
         "sub": user["employee_id"], 
         "role": final_role,
-        "project_id": str(user.get("project_id") or "")
+        "project_id": str(user.get("project_id") or ""),
+        "projectName": str(user.get("project_name") or user.get("projectName") or ""),
+        "domain": str(user.get("domain") or ""),
+        "roleType": str(user.get("roleType") or final_role)
     }
     new_access_token = auth_service.create_access_token(data=token_data)
     return {"token": new_access_token}

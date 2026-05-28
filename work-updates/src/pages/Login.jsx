@@ -14,7 +14,7 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const [loginMode, setLoginMode] = useState('admin');
-    const [adminType, setAdminType] = useState('management'); // 'management' or 'team_lead'
+    const [adminType, setAdminType] = useState('management'); // 'management' | 'team_lead' | 'domain_lead'
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [newPass, setNewPass] = useState('');
     const [tempUser, setTempUser] = useState(null);
@@ -30,7 +30,7 @@ const Login = () => {
         if (currentUser) {
             const role = currentUser.role?.toUpperCase();
             if (role === 'SUPER_ADMIN' || role === 'ADMIN') navigate('/admin');
-            else if (role === 'TEAM_LEAD') navigate('/project-dashboard');
+            else if (role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD') navigate('/project-dashboard');
             else navigate('/dashboard');
         }
     }, [currentUser, navigate]);
@@ -40,14 +40,17 @@ const Login = () => {
         setError('');
         setIsLoading(true);
         try {
+            const isManagementAdmin = loginMode === 'admin' && adminType === 'management';
+            const isLeadById = (loginMode === 'user') || (loginMode === 'admin' && (adminType === 'team_lead' || adminType === 'domain_lead'));
+
             const user = await signIn(
-                (loginMode === 'admin' && adminType === 'management') ? email : null,
-                (loginMode === 'user' || (loginMode === 'admin' && adminType === 'team_lead')) ? employeeId : null,
+                isManagementAdmin ? email : null,
+                isLeadById ? employeeId : null,
                 password
             );
             const role = user.role?.toUpperCase();
             const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
-            const isTeamLead = role === 'TEAM_LEAD';
+            const isTeamLead = role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD';
 
             if (user.isFirstLogin && isSuperAdmin) {
                 setTempUser(user);
@@ -170,13 +173,20 @@ const Login = () => {
                 ) : (
                     <form onSubmit={handleLogin} className="space-y-8">
                         {loginMode === 'admin' && (
-                            <div className="grid grid-cols-2 gap-3 mb-2 animate-fade-in">
+                            <div className="grid grid-cols-3 gap-3 mb-2 animate-fade-in">
                                 <button
                                     type="button"
                                     onClick={() => { setAdminType('team_lead'); setError(''); }}
                                     className={`py-3 rounded-xl text-sm font-bold border-2 transition-all duration-300 ${adminType === 'team_lead' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'border-slate-100 dark:border-slate-800 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30'}`}
                                 >
                                     Team Lead
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setAdminType('domain_lead'); setError(''); }}
+                                    className={`py-3 rounded-xl text-sm font-bold border-2 transition-all duration-300 ${adminType === 'domain_lead' ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-white text-slate-900 dark:text-white shadow-md' : 'border-slate-100 dark:border-slate-800 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30'}`}
+                                >
+                                    Domain Lead
                                 </button>
                                 <button
                                     type="button"

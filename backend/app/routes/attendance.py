@@ -1,6 +1,6 @@
 from app.schemas.schemas import AttendanceResponse, CheckInRequest
 from app.services import attendance_service
-from app.routes.auth import get_current_user, get_project_filter, require_role, verify_project_access
+from app.routes.auth import get_current_user, get_project_filter, require_role, verify_project_access, verify_domain_employee_access
 from app.core.roles import Role
 from fastapi import APIRouter, HTTPException, status, Request, Query, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
@@ -33,6 +33,23 @@ async def get_my_attendance(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/today-status")
+async def get_today_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """Retrieve today's attendance status for the logged-in employee."""
+    try:
+        emp_id = current_user.get("employee_id")
+        if not emp_id:
+            logger.error(f"AUTH ERROR: User {current_user.get('_id')} has no employee_id")
+            raise HTTPException(status_code=400, detail="Employee ID not found in token")
+            
+        status = await attendance_service.get_today_status(emp_id)
+        return status
+    except Exception as e:
+        logger.error(f"ATTENDANCE_TODAY_STATUS ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/current-status/{employee_id}")
 async def get_employee_current_status(
     employee_id: str,
@@ -46,6 +63,8 @@ async def get_employee_current_status(
         emp = await employee_service.get_employee_by_employee_id(employee_id) or await employee_service.get_employee_by_id(employee_id)
         if emp:
             verify_project_access(current_user, emp.get("projectId"))
+            if current_user.get("role") == Role.DOMAIN_LEAD:
+                await verify_domain_employee_access(current_user, emp.get("role", ""))
 
     return await attendance_service.get_employee_status(employee_id)
 
@@ -59,6 +78,16 @@ async def get_attendance_logs(
 ):
     """Retrieve all logs using the async MongoDB service."""
     target_project = enforced_project_id or project_id
+    if current_user.get("role") == Role.DOMAIN_LEAD:
+        target_domain = current_user.get("domain")
+        if not target_domain:
+            raise HTTPException(status_code=403, detail="Domain Lead has no domain assigned.")
+        from app.services import employee_service
+        emps = await employee_service.get_employees(project_id=target_project, domain=target_domain)
+        emp_ids = [e["employeeId"] for e in emps if e.get("employeeId")]
+        if not emp_ids:
+            return []
+        return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=target_project, employee_id=emp_ids)
     return await attendance_service.get_all_attendance(skip=skip, limit=limit, project_id=target_project)
 
 @router.get("/admin/export")

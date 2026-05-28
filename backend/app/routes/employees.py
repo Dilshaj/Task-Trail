@@ -8,7 +8,7 @@ from app.services import employee_service
 from app.utils.cloudinary_utils import upload_base64_image
 from app.core.roles import Role
 from app.db.mongo import db
-from app.routes.auth import get_current_user, require_role, get_project_filter, verify_project_access
+from app.routes.auth import get_current_user, require_role, get_project_filter, verify_project_access, get_enforced_domain, verify_domain_employee_access
 
 logger = logging.getLogger(__name__)
 
@@ -26,21 +26,32 @@ async def get_employees(
     """
     SUPER_ADMIN: Sees everyone (can filter by project_id)
     TEAM_LEAD: Sees only their project's employees
+    DOMAIN_LEAD: Sees only their project's domain employees
     """
     target_project = enforced_project_id or project_id
+    if current_user.get("role") == Role.DOMAIN_LEAD:
+        domain = get_enforced_domain(current_user)
     return await employee_service.get_employees(skip=skip, limit=limit, project_id=target_project, domain=domain)
 
 @router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
 async def create_employee(
     employee: EmployeeCreate,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """
-    TEAM_LEAD can only create employees for their own project.
+    TEAM_LEAD and DOMAIN_LEAD can only create employees for their own project.
     """
-    if current_user["role"] == Role.TEAM_LEAD:
+    if current_user["role"] in [Role.TEAM_LEAD, Role.DOMAIN_LEAD]:
         if not employee.project_id or employee.project_id != current_user.get("project_id"):
              employee.project_id = current_user.get("project_id")
+        if current_user["role"] == Role.DOMAIN_LEAD:
+            from app.utils.domain_utils import is_employee_in_domain
+            target_domain = current_user.get("domain")
+            if not target_domain or not is_employee_in_domain(employee.role, target_domain):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Forbidden: Domain Lead can only create employees in {target_domain} domain."
+                )
              
     try:
         created = await employee_service.create_employee(employee)
@@ -58,6 +69,10 @@ async def search_employees(
     enforced_project_id: Optional[str] = Depends(get_project_filter)
 ):
     employee = await employee_service.search_employee(employee_id, name)
+    if employee and enforced_project_id:
+        verify_project_access(current_user, employee.get("projectId"))
+    if employee and current_user.get("role") == Role.DOMAIN_LEAD:
+        await verify_domain_employee_access(current_user, employee.get("role", ""))
     return employee
 
 @router.get("/me", response_model=EmployeeResponse)
@@ -94,6 +109,8 @@ async def get_employee(
         
     if enforced_project_id:
         verify_project_access(current_user, employee.get("projectId"))
+    if current_user.get("role") == Role.DOMAIN_LEAD:
+        await verify_domain_employee_access(current_user, employee.get("role", ""))
         
     return employee
 
@@ -102,7 +119,7 @@ async def update_employee(
     id: str, 
     employee_update: EmployeeUpdate, 
     request: Request,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """Update employee using Cloudinary exclusively."""
     # RBAC: TEAM_LEAD can only update their own project's employees
@@ -110,12 +127,14 @@ async def update_employee(
     if not existing:
         raise HTTPException(status_code=404, detail="Employee not found")
         
-    if current_user["role"] == Role.TEAM_LEAD:
+    if current_user["role"] in [Role.TEAM_LEAD, Role.DOMAIN_LEAD]:
         verify_project_access(current_user, existing.get("projectId"))
-        # TEAM_LEAD cannot change the project_id or role to SUPER_ADMIN
+        if current_user["role"] == Role.DOMAIN_LEAD:
+            await verify_domain_employee_access(current_user, existing.get("role", ""))
+        # TEAM_LEAD/DOMAIN_LEAD cannot change the project_id or elevate privileges
         employee_update.project_id = existing.get("projectId")
         if employee_update.role == Role.SUPER_ADMIN:
-            employee_update.role = Role.TEAM_LEAD
+            employee_update.role = current_user["role"]
 
     try:
         if employee_update.avatar and employee_update.avatar.startswith("data:image"):
@@ -149,9 +168,11 @@ async def update_progress(
             raise HTTPException(status_code=403, detail="Not authorized to update other's progress")
     else:
         # TL check
-        if current_user["role"] == Role.TEAM_LEAD:
+        if current_user["role"] in [Role.TEAM_LEAD, Role.DOMAIN_LEAD]:
              existing = await employee_service.get_employee_by_id(id) or await employee_service.get_employee_by_employee_id(id)
              verify_project_access(current_user, existing.get("projectId"))
+             if current_user["role"] == Role.DOMAIN_LEAD:
+                 await verify_domain_employee_access(current_user, existing.get("role", ""))
 
     updated = await employee_service.update_employee_progress(id, progress)
     if not updated:

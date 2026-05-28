@@ -44,10 +44,14 @@ const EmployeesPanel = () => {
 
     const role = user?.role?.toUpperCase();
     const isTeamLead = role === 'TEAM_LEAD';
+    const isDomainLead = role === 'DOMAIN_LEAD';
     const tlDomain = getTeamLeadDomain(user);
+    const dlDomain = user?.domain || null;
 
     const domainEmployees = (isTeamLead && tlDomain)
         ? employees.filter(e => getDomainGroup(e.role) === tlDomain)
+        : (isDomainLead && dlDomain)
+            ? employees.filter(e => getDomainGroup(e.role) === getDomainGroup(dlDomain))
         : employees;
 
     const filteredEmployees = domainEmployees.filter(emp =>
@@ -74,7 +78,9 @@ const EmployeesPanel = () => {
                         Team Members
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        {isTeamLead 
+                        {isDomainLead
+                            ? `Managing ${dlDomain || 'domain'} employees for your assigned project.`
+                            : isTeamLead 
                             ? `Managing employees for your assigned project.`
                             : selectedProject
                                 ? `Employees currently assigned to ${selectedProject.name}.`

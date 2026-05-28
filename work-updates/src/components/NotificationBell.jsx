@@ -14,7 +14,6 @@ export const NotificationBell = () => {
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 60000); // Check every 1 min
         
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -24,7 +23,6 @@ export const NotificationBell = () => {
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
-            clearInterval(interval);
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);

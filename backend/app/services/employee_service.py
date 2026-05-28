@@ -95,10 +95,13 @@ def format_employee(emp):
         "employee_id": emp.get("employee_id"),
         "name": name if name else "Unknown User",
         "role": emp.get("role") if emp.get("role") else "user",
+        "roleType": emp.get("roleType") or emp.get("role_type") or emp.get("role"),
+        "domain": emp.get("domain"),
         "email": emp.get("email"),
         "avatar": final_avatar,
         "projectId": str(emp.get("project_id")) if emp.get("project_id") else None,
         "project_id": str(emp.get("project_id")) if emp.get("project_id") else None,
+        "projectName": emp.get("projectName") or emp.get("project_name"),
         
         # Mapped to all possible frontend field names for reliability
         "workProgress": work_prog,
@@ -162,7 +165,7 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None,
             elif domain_lower == "others":
                 query["role"] = {"$not": {"$regex": "develop|devlop|analyst|devops|security|python|design|designer|uiux|ui/ux", "$options": "i"}}
         
-        cursor = db.employees.find(query).skip(skip).limit(limit)
+        cursor = db.employees.find(query, {"face_image": 0}).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)
         
         # 🛡️ Filter out None values and format safely
@@ -227,6 +230,16 @@ async def create_employee(employee: EmployeeCreate):
         # 🔒 RBAC Guard: TEAM_LEAD must have a project_id
         if new_emp_data.get("role") == "TEAM_LEAD" and not new_emp_data.get("project_id"):
             raise ValueError("TEAM_LEAD must be assigned to a project_id")
+        if new_emp_data.get("role") == "TEAM_LEAD":
+            new_emp_data["roleType"] = "TEAM_LEAD"
+
+        # 🔒 RBAC Guard: DOMAIN_LEAD must have project and domain
+        if new_emp_data.get("role") == "DOMAIN_LEAD":
+            if not new_emp_data.get("project_id"):
+                raise ValueError("DOMAIN_LEAD must be assigned to a project_id")
+            if not new_emp_data.get("domain"):
+                raise ValueError("DOMAIN_LEAD must be assigned to a domain")
+            new_emp_data["roleType"] = "DOMAIN_LEAD"
             
         # Default password if not provided
         password = new_emp_data.pop("password", None) or "user"
@@ -239,6 +252,14 @@ async def create_employee(employee: EmployeeCreate):
         
         if "email" not in new_emp_data or not new_emp_data["email"]:
             new_emp_data["email"] = f"{new_emp_data['employee_id']}@worksheet.local"
+
+        if new_emp_data.get("project_id") and not new_emp_data.get("projectName"):
+            try:
+                proj = await db.projects.find_one({"_id": ObjectId(str(new_emp_data["project_id"]))})
+                if proj:
+                    new_emp_data["projectName"] = proj.get("name")
+            except Exception:
+                pass
         
         result = await db.employees.insert_one(new_emp_data)
         new_emp_data["_id"] = result.inserted_id

@@ -48,7 +48,9 @@ const ProjectDashboard = () => {
     const role = user?.role?.toUpperCase();
     const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
     const isTeamLead = role === 'TEAM_LEAD';
+    const isDomainLead = role === 'DOMAIN_LEAD';
     const tlDomain = getTeamLeadDomain(user);
+    const dlDomain = user?.domain || null;
 
     // ... stats logic ...
 
@@ -61,15 +63,15 @@ const ProjectDashboard = () => {
     });
     const [loadingMetrics, setLoadingMetrics] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeDomain, setActiveDomain] = useState(isTeamLead && tlDomain ? tlDomain : 'All');
+    const [activeDomain, setActiveDomain] = useState(isTeamLead && tlDomain ? tlDomain : (isDomainLead && dlDomain ? dlDomain : 'All'));
 
     const projectId = selectedProjectId || sessionStorage.getItem('selected_project_id');
 
     // Reset filters only when project ID, role, or lead domain changes
     useEffect(() => {
         setSearchQuery('');
-        setActiveDomain(isTeamLead && tlDomain ? tlDomain : 'All');
-    }, [projectId, isTeamLead, tlDomain]);
+        setActiveDomain(isTeamLead && tlDomain ? tlDomain : (isDomainLead && dlDomain ? dlDomain : 'All'));
+    }, [projectId, isTeamLead, tlDomain, isDomainLead, dlDomain]);
 
     // Fetch project metrics and refresh employee list
     useEffect(() => {
@@ -101,12 +103,16 @@ const ProjectDashboard = () => {
     const project = projects.find(p => p.id === projectId);
     const projectEmployees = (isTeamLead && tlDomain)
         ? employees.filter(e => e.projectId === projectId && getDomainGroup(e.role) === tlDomain)
-        : employees.filter(e => e.projectId === projectId);
+        : (isDomainLead && dlDomain)
+            ? employees.filter(e => e.projectId === projectId && getDomainGroup(e.role) === getDomainGroup(dlDomain))
+            : employees.filter(e => e.projectId === projectId);
 
     const allowedEmpIds = new Set(projectEmployees.map(e => e.id || e._id));
     const projectTasks = (isTeamLead && tlDomain)
         ? tasks.filter(t => t.projectId === projectId && allowedEmpIds.has(t.assignedTo))
-        : tasks.filter(t => t.projectId === projectId);
+        : (isDomainLead && dlDomain)
+            ? tasks.filter(t => t.projectId === projectId && allowedEmpIds.has(t.assignedTo))
+            : tasks.filter(t => t.projectId === projectId);
 
     const completedCount = projectTasks.filter(t => t.status === 'Completed').length;
     const recentUpdates = projectTasks.filter(t => t.status === 'Completed').sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
@@ -317,7 +323,8 @@ const ProjectDashboard = () => {
                 <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 overflow-x-auto no-scrollbar">
                     {Object.keys(domainCounts).map((domain) => {
                         // If user is a team lead with a matched domain, only show 'All' and their specific domain tab
-                        if (isTeamLead && tlDomain && domain !== 'All' && domain !== tlDomain) {
+                        if ((isTeamLead && tlDomain && domain !== 'All' && domain !== tlDomain) ||
+                            (isDomainLead && dlDomain && domain !== 'All' && domain !== getDomainGroup(dlDomain))) {
                             return null;
                         }
                         const count = domainCounts[domain];

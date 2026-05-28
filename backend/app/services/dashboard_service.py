@@ -1,7 +1,8 @@
 from app.db.mongo import db
+from app.utils.domain_utils import apply_domain_filter_to_query
 from datetime import datetime, timezone, timedelta
 
-async def get_admin_dashboard_stats(project_id: str = None):
+async def get_admin_dashboard_stats(project_id: str = None, domain: str = None):
     """
     Calculates key metrics for the admin overview using MongoDB aggregations.
     If project_id is provided, filters metrics for that specific project.
@@ -15,6 +16,8 @@ async def get_admin_dashboard_stats(project_id: str = None):
         emp_query = {"project_id": project_id}
     else:
         emp_query = {}
+    if domain:
+        apply_domain_filter_to_query(emp_query, domain)
 
     # 1. Employee Count
     total_employees = await db.employees.count_documents(emp_query)
@@ -27,8 +30,19 @@ async def get_admin_dashboard_stats(project_id: str = None):
 
     # 3. Task Metrics (Aggregation)
     task_pipeline = []
+    task_match = {}
     if project_id:
-        task_pipeline.append({"$match": {"project_id": project_id}})
+        task_match["project_id"] = project_id
+    if domain:
+        domain_emp_filter = {}
+        if project_id:
+            domain_emp_filter["project_id"] = project_id
+        apply_domain_filter_to_query(domain_emp_filter, domain)
+        emps = await db.employees.find(domain_emp_filter, {"employee_id": 1}).to_list(1000)
+        emp_ids = [e.get("employee_id") for e in emps if e.get("employee_id")]
+        task_match["assigned_to"] = {"$in": emp_ids} if emp_ids else {"$in": []}
+    if task_match:
+        task_pipeline.append({"$match": task_match})
     
     task_pipeline.append({"$group": {"_id": "$status", "count": {"$sum": 1}}})
     
@@ -40,9 +54,14 @@ async def get_admin_dashboard_stats(project_id: str = None):
     
     # 4. Attendance Statistics
     # Attendance is usually linked to employee_id
-    if project_id:
+    if project_id or domain:
         # Get all human-readable employee IDs for this project
-        project_emps = await db.employees.find({"project_id": project_id}).to_list(1000)
+        emp_filter = {}
+        if project_id:
+            emp_filter["project_id"] = project_id
+        if domain:
+            apply_domain_filter_to_query(emp_filter, domain)
+        project_emps = await db.employees.find(emp_filter, {"employee_id": 1}).to_list(1000)
         # Robustly collect both human-readable employee_id AND MongoDB _id string
         emp_ids = []
         for e in project_emps:
@@ -74,7 +93,7 @@ async def get_admin_dashboard_stats(project_id: str = None):
         }
     }
 
-async def get_monthly_attendance_chart(project_id: str = None):
+async def get_monthly_attendance_chart(project_id: str = None, domain: str = None):
     """
     Generates data for a 30-day activity chart using aggregation.
     Filters by project if project_id is provided.
@@ -83,9 +102,14 @@ async def get_monthly_attendance_chart(project_id: str = None):
         return []
         
     query = {}
-    if project_id:
+    if project_id or domain:
         # Get all human-readable employee IDs for this project
-        project_emps = await db.employees.find({"project_id": project_id}).to_list(1000)
+        emp_filter = {}
+        if project_id:
+            emp_filter["project_id"] = project_id
+        if domain:
+            apply_domain_filter_to_query(emp_filter, domain)
+        project_emps = await db.employees.find(emp_filter, {"employee_id": 1}).to_list(1000)
         emp_ids = []
         for e in project_emps:
             if e.get("employee_id"): emp_ids.append(e["employee_id"])

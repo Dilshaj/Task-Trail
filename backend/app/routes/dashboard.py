@@ -1,6 +1,6 @@
 from app.schemas.schemas import DashboardMetricsResponse
 from app.services import dashboard_service
-from app.routes.auth import get_current_user, get_project_filter
+from app.routes.auth import get_current_user, get_project_filter, get_enforced_domain
 from app.core.roles import Role
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
@@ -21,7 +21,8 @@ async def get_admin_metrics(
 ):
     """Provides high-level system metrics using MongoDB aggregations."""
     target_project = enforced_project_id or project_id
-    stats = await dashboard_service.get_admin_dashboard_stats(project_id=target_project)
+    domain = get_enforced_domain(current_user) if current_user.get("role") == Role.DOMAIN_LEAD else None
+    stats = await dashboard_service.get_admin_dashboard_stats(project_id=target_project, domain=domain)
     
     # Map to schema expected by frontend
     return {
@@ -40,7 +41,8 @@ async def get_activity_chart(
 ):
     """Provides data for the monthly activity chart with project isolation."""
     target_project = enforced_project_id or project_id
-    return await dashboard_service.get_monthly_attendance_chart(project_id=target_project)
+    domain = get_enforced_domain(current_user) if current_user.get("role") == Role.DOMAIN_LEAD else None
+    return await dashboard_service.get_monthly_attendance_chart(project_id=target_project, domain=domain)
 
 @router.get("/employee/{user_id}", response_model=UserDashboardMetricsResponse)
 async def get_user_metrics(

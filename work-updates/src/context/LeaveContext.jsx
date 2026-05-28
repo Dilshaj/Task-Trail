@@ -18,7 +18,7 @@ export const LeaveProvider = ({ children }) => {
 
             let data = [];
             const role = user.role?.toUpperCase();
-            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD' || role === 'MANAGEMENT';
             
             if (canManage) {
                 data = await getAllLeaves(selectedProjectId);
@@ -67,7 +67,7 @@ export const LeaveProvider = ({ children }) => {
             // 2. Fetch fresh data
             let data = [];
             const role = user.role?.toUpperCase();
-            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'MANAGEMENT';
+            const canManage = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'TEAM_LEAD' || role === 'DOMAIN_LEAD' || role === 'MANAGEMENT';
             
             if (canManage) {
                 data = await getAllLeaves(selectedProjectId);

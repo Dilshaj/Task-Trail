@@ -131,7 +131,7 @@ async def get_user_leaves(
 @router.get("/all-leaves", response_model=List[LeaveRequestResponse])
 async def get_all_leaves(
     project_id: Optional[str] = Query(None),
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD])),
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD])),
     enforced_project_id: Optional[str] = Depends(get_project_filter)
 ):
     """Admin endpoint to see all submitted leave requests with strict project and status isolation."""
@@ -150,10 +150,20 @@ async def get_all_leaves(
             query["project_id"] = {"$in": pids}
             
         # 2. Status Isolation (Multi-level Workflow)
-        if current_user["role"] == Role.TEAM_LEAD:
+        if current_user["role"] in [Role.TEAM_LEAD, Role.DOMAIN_LEAD]:
             # TL sees what they need to approve + their team's history
             query["status"] = {"$in": ["PENDING_TEAM_LEAD", "APPROVED", "REJECTED"]}
-            logger.info(f"🛡️ [RBAC] TL Filter: project_id={target_project}, status=[PENDING_TEAM_LEAD, APPROVED, REJECTED]")
+            logger.info(f"🛡️ [RBAC] TL/DOMAIN Filter: project_id={target_project}, status=[PENDING_TEAM_LEAD, APPROVED, REJECTED]")
+            if current_user["role"] == Role.DOMAIN_LEAD:
+                target_domain = current_user.get("domain")
+                if not target_domain:
+                    raise HTTPException(status_code=403, detail="Domain Lead is not assigned to any domain.")
+                from app.services import employee_service
+                emps = await employee_service.get_employees(project_id=target_project, domain=target_domain)
+                emp_ids = [e["employeeId"] for e in emps if e.get("employeeId")]
+                if not emp_ids:
+                    return []
+                query["employee_id"] = {"$in": emp_ids}
         elif current_user["role"] == Role.SUPER_ADMIN:
             # Management sees what they need to approve + all history
             query["status"] = {"$in": ["PENDING_MANAGEMENT", "APPROVED", "REJECTED"]}
@@ -171,7 +181,7 @@ async def get_all_leaves(
 async def update_leave_status(
     leave_id: str, 
     status: str,
-    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD]))
+    current_user: dict = Depends(require_role([Role.SUPER_ADMIN, Role.TEAM_LEAD, Role.DOMAIN_LEAD]))
 ):
     """
     Approve or Reject a leave request with 2-level workflow:
@@ -189,11 +199,17 @@ async def update_leave_status(
         current_status = leave.get("status", "PENDING_TEAM_LEAD")
         
         # 🛡️ Level 1: Team Lead Approval
-        if current_user["role"] == Role.TEAM_LEAD:
+        if current_user["role"] in [Role.TEAM_LEAD, Role.DOMAIN_LEAD]:
             # 1. Check Project Isolation
             emp = await db.employees.find_one({"employee_id": leave.get("employee_id")})
             if not emp or str(emp.get("project_id")) != str(current_user.get("project_id")):
                 raise HTTPException(status_code=403, detail="Forbidden: You can only approve leaves for your project employees.")
+
+            if current_user["role"] == Role.DOMAIN_LEAD:
+                from app.utils.domain_utils import is_employee_in_domain
+                target_domain = current_user.get("domain")
+                if not target_domain or not is_employee_in_domain(emp.get("role", ""), target_domain):
+                    raise HTTPException(status_code=403, detail="Forbidden: Employee is not in your domain.")
             
             # 2. Check Workflow Level
             if current_status != "PENDING_TEAM_LEAD":

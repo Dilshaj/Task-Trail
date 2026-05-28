@@ -60,6 +60,27 @@ export const getAttendanceLogs = async (projectId = null) => {
     }
 };
 
+export const getTodayStatus = async () => {
+    try {
+        const response = await api.get(`${API_URL}/today-status`, { params: { _t: Date.now() } });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to fetch today status:', error);
+        throw error;
+    }
+};
+
+
+export const getCurrentStatus = async (employeeId) => {
+    try {
+        const response = await api.get(`${API_URL}/current-status/${employeeId}`, { params: { _t: Date.now() } });
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to fetch current status for ${employeeId}:`, error);
+        throw error; // Throw error to let caller preserve state on network failure
+    }
+};
+
 export const getMyAttendance = async (limit = 1000) => {
     try {
         const response = await api.get(`${API_URL}/my-attendance`, { params: { limit } });
