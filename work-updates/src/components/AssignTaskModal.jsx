@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
 const AssignTaskModal = ({ isOpen, onClose, onAssign, employeeId, projectId }) => {
+    // Compute today's date in YYYY-MM-DD format (used as min for the date picker)
+    const today = new Date().toISOString().split('T')[0];
+
     const [taskObj, setTaskObj] = useState({
         title: '',
         description: '',
@@ -101,6 +104,7 @@ const AssignTaskModal = ({ isOpen, onClose, onAssign, employeeId, projectId }) =
                                     <input
                                         type="date"
                                         required
+                                        min={today}
                                         value={taskObj.deadline}
                                         onChange={(e) => handleChange('deadline', e.target.value)}
                                         className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-2 text-sm outline-none transition focus:border-blue-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-indigo-900/50 dark:text-white"
