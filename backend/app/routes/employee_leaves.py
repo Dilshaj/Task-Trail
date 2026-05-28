@@ -165,9 +165,9 @@ async def get_all_leaves(
             logger.info(f"🛡️ [RBAC] DOMAIN_LEAD Filter: project_id={target_project}, domain={target_domain}, statuses=[PENDING_TEAM_LEAD, APPROVED, REJECTED]")
 
         elif current_user["role"] == Role.TEAM_LEAD:
-            # 🚫 Team Lead no longer approves leaves — history view only (APPROVED/REJECTED)
-            query["status"] = {"$in": ["APPROVED", "REJECTED"]}
-            logger.info(f"🛡️ [RBAC] TEAM_LEAD Filter: project_id={target_project}, statuses=[APPROVED, REJECTED] (history only)")
+            # 🚫 Team Lead no longer approves leaves — sees all leaves (pending + history) in read-only mode
+            query["status"] = {"$in": ["PENDING_TEAM_LEAD", "PENDING_MANAGEMENT", "APPROVED", "REJECTED"]}
+            logger.info(f"🛡️ [RBAC] TEAM_LEAD Filter: project_id={target_project}, statuses=[PENDING_TEAM_LEAD, PENDING_MANAGEMENT, APPROVED, REJECTED] (read-only view)")
         elif current_user["role"] == Role.SUPER_ADMIN:
             # Management sees what they need to approve + all pending level-1 (Domain Lead) + all history
             query["status"] = {"$in": ["PENDING_TEAM_LEAD", "PENDING_MANAGEMENT", "APPROVED", "REJECTED"]}
