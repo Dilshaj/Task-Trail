@@ -149,21 +149,8 @@ async def get_employees(skip: int = 0, limit: int = 100, project_id: str = None,
             logger.info("[ISOLATION] No project_id provided. Returning all employees.")
         
         if domain and str(domain).lower() not in ["null", "undefined", "none", "all", ""]:
-            domain_lower = str(domain).lower().strip()
-            if domain_lower == "developers":
-                query["role"] = {"$regex": "^(?!.*python)(?!.*design)(?!.*designer)(?!.*uiux)(?!.*ui/ux)(?:.*develop|.*devlop)", "$options": "i"}
-            elif domain_lower in ["python developer", "python developers", "python"]:
-                query["role"] = {"$regex": "python", "$options": "i"}
-            elif domain_lower in ["data analysts", "data analyst", "analysts", "analyst"]:
-                query["role"] = {"$regex": "analyst", "$options": "i"}
-            elif domain_lower == "devops":
-                query["role"] = {"$regex": "devops", "$options": "i"}
-            elif domain_lower in ["cyber security", "cybersecurity", "security"]:
-                query["role"] = {"$regex": "security", "$options": "i"}
-            elif domain_lower in ["uiux design", "ui/ux design", "uiux designer", "ui/ux designer", "uiux", "ui/ux", "design", "designer"]:
-                query["role"] = {"$regex": "ui/ux|uiux|design|designer", "$options": "i"}
-            elif domain_lower == "others":
-                query["role"] = {"$not": {"$regex": "develop|devlop|analyst|devops|security|python|design|designer|uiux|ui/ux", "$options": "i"}}
+            from app.utils.domain_utils import apply_domain_filter_to_query
+            query = apply_domain_filter_to_query(query, domain)
         
         cursor = db.employees.find(query, {"face_image": 0}).skip(skip).limit(limit)
         raw_employees = await cursor.to_list(length=limit)

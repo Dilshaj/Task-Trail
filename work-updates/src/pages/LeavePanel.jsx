@@ -52,10 +52,12 @@ const LeavePanel = ({ isAdmin }) => {
 
     const formatStatus = (status) => {
         if (!status) return 'Unknown';
-        if (status === 'PENDING_TEAM_LEAD') return 'Pending (Team Lead)';
+        if (status === 'PENDING_TEAM_LEAD') return 'Pending (Domain Lead)';
         if (status === 'PENDING_MANAGEMENT') return 'Pending (Management)';
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
     };
+
+    const showActionsColumn = user?.role?.toUpperCase() !== 'TEAM_LEAD';
 
     return (
         <Layout>
@@ -94,7 +96,7 @@ const LeavePanel = ({ isAdmin }) => {
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Period</th>
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Reason</th>
                                     <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Status</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Actions</th>
+                                    {showActionsColumn && <th className="px-6 py-4 font-semibold text-slate-600 dark:text-slate-400">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -125,65 +127,67 @@ const LeavePanel = ({ isAdmin }) => {
                                                     {formatStatus(leave.status)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    {/* 🛡️ Level 1: Team Lead Approval Action */}
-                                                    {['TEAM_LEAD', 'DOMAIN_LEAD'].includes(user?.role?.toUpperCase()) && leave.status === 'PENDING_TEAM_LEAD' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => updateLeaveStatus(leave.id, 'PENDING_MANAGEMENT')}
-                                                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition"
-                                                                title="Forward to Management"
-                                                            >
-                                                                <CheckCircle className="h-5 w-5" />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => updateLeaveStatus(leave.id, 'REJECTED')}
-                                                                className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
-                                                                title="Reject"
-                                                            >
-                                                                <XCircle className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    )}
+                                            {showActionsColumn && (
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* 🛡️ Level 1: Domain Lead Approval Action */}
+                                                        {user?.role?.toUpperCase() === 'DOMAIN_LEAD' && leave.status === 'PENDING_TEAM_LEAD' && (
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => updateLeaveStatus(leave.id, 'PENDING_MANAGEMENT')}
+                                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition"
+                                                                    title="Forward to Management"
+                                                                >
+                                                                    <CheckCircle className="h-5 w-5" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => updateLeaveStatus(leave.id, 'REJECTED')}
+                                                                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
+                                                                    title="Reject"
+                                                                >
+                                                                    <XCircle className="h-5 w-5" />
+                                                                </button>
+                                                            </>
+                                                        )}
 
-                                                    {/* 🛡️ Level 2: Management Final Approval Action */}
-                                                    {(user?.role?.toUpperCase() === 'SUPER_ADMIN' || user?.role?.toUpperCase() === 'ADMIN') && leave.status === 'PENDING_MANAGEMENT' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => updateLeaveStatus(leave.id, 'APPROVED')}
-                                                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition"
-                                                                title="Approve"
-                                                            >
-                                                                <CheckCircle className="h-5 w-5" />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => updateLeaveStatus(leave.id, 'REJECTED')}
-                                                                className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
-                                                                title="Reject"
-                                                            >
-                                                                <XCircle className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                        {/* 🛡️ Level 2: Management Final Approval Action */}
+                                                        {(user?.role?.toUpperCase() === 'SUPER_ADMIN' || user?.role?.toUpperCase() === 'ADMIN') && leave.status === 'PENDING_MANAGEMENT' && (
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => updateLeaveStatus(leave.id, 'APPROVED')}
+                                                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition"
+                                                                    title="Approve"
+                                                                >
+                                                                    <CheckCircle className="h-5 w-5" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => updateLeaveStatus(leave.id, 'REJECTED')}
+                                                                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
+                                                                    title="Reject"
+                                                                >
+                                                                    <XCircle className="h-5 w-5" />
+                                                                </button>
+                                                            </>
+                                                        )}
 
-                                                    {/* 🗑️ Employee can delete only if still at Level 1 */}
-                                                    {!isAdmin && leave.status === 'PENDING_TEAM_LEAD' && (
-                                                        <button 
-                                                            onClick={() => deleteLeave(leave.id)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
-                                                            title="Delete Request"
-                                                        >
-                                                            <Trash2 className="h-5 w-5" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
+                                                        {/* 🗑️ Employee can delete only if still at Level 1 */}
+                                                        {!isAdmin && leave.status === 'PENDING_TEAM_LEAD' && (
+                                                            <button 
+                                                                onClick={() => deleteLeave(leave.id)}
+                                                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition"
+                                                                title="Delete Request"
+                                                            >
+                                                                <Trash2 className="h-5 w-5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={isAdmin ? '6' : '5'} className="px-6 py-12 text-center text-slate-500">
+                                        <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                                             <Clock className="h-8 w-8 text-slate-300 mx-auto mb-3" />
                                             <p>No leave requests found.</p>
                                         </td>

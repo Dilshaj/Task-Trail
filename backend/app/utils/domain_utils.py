@@ -26,7 +26,7 @@ def is_employee_in_domain(employee_role: str, domain: str) -> bool:
         return "security" in role
     if dom in {"uiux", "ui/ux", "uiux design", "ui/ux design", "design", "designer"}:
         return any(k in role for k in ["uiux", "ui/ux", "design", "designer"])
-    if dom == "others":
+    if dom in {"non-it", "non_it", "non it", "others"}:
         return not any(k in role for k in ["develop", "devlop", "python", "analyst", "devops", "security", "design", "uiux", "ui/ux"])
 
     # Fallback: permissive contains check for custom domains.
@@ -50,7 +50,7 @@ def apply_domain_filter_to_query(query: Dict, domain: str) -> Dict:
         query["role"] = {"$regex": "security", "$options": "i"}
     elif dom in {"uiux", "ui/ux", "uiux design", "ui/ux design", "design", "designer"}:
         query["role"] = {"$regex": "ui/ux|uiux|design|designer", "$options": "i"}
-    elif dom == "others":
+    elif dom in {"non-it", "non_it", "non it", "others"}:
         query["role"] = {"$not": {"$regex": "develop|devlop|analyst|devops|security|python|design|designer|uiux|ui/ux", "$options": "i"}}
     else:
         query["role"] = {"$regex": re.escape(domain), "$options": "i"}
