@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from app.schemas.schemas import OfferLetterCreate, OfferLetterResponse
 from app.services.offer_letter_service import OfferLetterService
 from app.routes.auth import get_current_user, get_project_filter, require_role, verify_project_access
@@ -49,12 +49,14 @@ async def download_offer_letter(
         if current_user["role"] == Role.TEAM_LEAD:
              verify_project_access(current_user, offer.get("projectId"))
 
-        pdf_path = OfferLetterService.generate_offer_letter_pdf(offer)
+        pdf_buffer = OfferLetterService.generate_offer_letter_pdf(offer)
         
-        return FileResponse(
-            path=pdf_path,
+        return StreamingResponse(
+            pdf_buffer,
             media_type="application/pdf",
-            filename=f"Offer_Letter_{employee_id}.pdf"
+            headers={
+                "Content-Disposition": f"attachment; filename=Offer_Letter_{employee_id}.pdf"
+            }
         )
     except HTTPException as he:
         raise he
