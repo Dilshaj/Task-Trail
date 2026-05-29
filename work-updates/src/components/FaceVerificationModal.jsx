@@ -13,7 +13,7 @@ const loadModelsGlobal = () => {
         faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_MODEL_URL)
     ]).catch(err => {
         console.error('Failed to load local models, trying CDN fallback...', err);
-        const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+        const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
         return Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(CDN_MODEL_URL),
