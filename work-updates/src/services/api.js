@@ -50,6 +50,13 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
+/** Clears all auth storage keys and redirects to login */
+const forceLogout = () => {
+    localStorage.removeItem('user_v2');
+    localStorage.removeItem('user'); // Also clear legacy key
+    window.location.href = '/';
+};
+
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -72,7 +79,8 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             isRefreshing = true;
 
-            const savedUser = localStorage.getItem('user_v2');
+            // ✅ FIX 1: Check both storage keys (legacy 'user' + current 'user_v2')
+            const savedUser = localStorage.getItem('user_v2') || localStorage.getItem('user');
             if (savedUser) {
                 try {
                     const userData = JSON.parse(savedUser);
@@ -97,24 +105,38 @@ api.interceptors.response.use(
                             isRefreshing = false;
 
                             return api(originalRequest);
+                        } else {
+                            // Unexpected non-200 — treat as failed refresh
+                            console.error('[AUTH] Refresh returned unexpected status:', res.status);
+                            processQueue(new Error('Refresh failed'), null);
+                            isRefreshing = false;
+                            forceLogout();
+                            return Promise.reject(error);
                         }
                     } else {
-                        console.error("❌ [AUTH] No refresh token found. Logging out.");
+                        // ✅ FIX 2: Use forceLogout to clear both storage keys
+                        console.error("[AUTH] No refresh token found. Logging out.");
                         processQueue(new Error("No refresh token"), null);
                         isRefreshing = false;
-                        localStorage.removeItem('user_v2');
-                        window.location.href = "/";
+                        forceLogout();
                         return Promise.reject(error);
                     }
                 } catch (refreshError) {
-                    console.error("❌ [AUTH] Refresh token failed/expired. Logging out.");
+                    // ✅ FIX 2: Use forceLogout to clear both storage keys
+                    console.error("[AUTH] Refresh token failed/expired. Logging out.");
                     processQueue(refreshError, null);
                     isRefreshing = false;
-                    localStorage.removeItem('user_v2');
-                    window.location.href = "/";
+                    forceLogout();
                     return Promise.reject(refreshError);
                 }
             } else {
+                // ✅ FIX 3: CRITICAL - Reset isRefreshing & drain queue before rejecting.
+                // Without this, isRefreshing stays true forever → all future requests
+                // are queued but never resolved (permanent deadlock).
+                console.warn("[AUTH] 401 received but no auth data in storage. Redirecting to login.");
+                processQueue(error, null);
+                isRefreshing = false;
+                forceLogout();
                 return Promise.reject(error);
             }
         }
