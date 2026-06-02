@@ -78,6 +78,8 @@ async def update_profile(
             # If it failed (returned None), format_employee will auto-generate a name-based avatar.
             if cloudinary_url:
                 update_data["avatar"] = cloudinary_url
+                update_data["face_encoding"] = None
+                update_data["face_image"] = None
 
         result = await db.employees.find_one_and_update(
             {"_id": ObjectId(user_id)},

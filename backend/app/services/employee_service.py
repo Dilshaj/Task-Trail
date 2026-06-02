@@ -64,6 +64,7 @@ def format_employee(emp):
         return None
         
     # 🛡️ GLOBAL CREDENTIAL EXCLUSION
+    has_face = bool(emp.get("face_encoding"))
     for key in ["password_hash", "password", "refresh_token", "face_descriptor", "face_encoding", "face_image"]:
         emp.pop(key, None)
         
@@ -121,8 +122,8 @@ def format_employee(emp):
         "is_checked_in": emp.get("is_checked_in", False),
         "lastCheckIn": format_date(emp.get("last_check_in")),
         "lastCheckOut": format_date(emp.get("last_check_out")),
-        "hasFaceEncoding": bool(emp.get("face_encoding")),
-        "has_face_encoding": bool(emp.get("face_encoding")),
+        "hasFaceEncoding": has_face,
+        "has_face_encoding": has_face,
         
         "createdAt": format_date(emp.get("created_at")),
         "created_at": format_date(emp.get("created_at")),
